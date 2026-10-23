@@ -1,0 +1,21 @@
+# Terminal Full Output
+# Terminal: geocool
+# Command: python3 - <<'PY'
+from backend.app import map_config
+from urllib.parse import urlsplit
+c=map_config(); u=urlsplit(c['tile_url'])
+print({'provider':c['provider'],'label':c['label'],'host':u.netloc,'path_template':u.path,'has_query_key':bool(u.query),'fallback':c['fallback']})
+PY
+# PID: 1153
+# Timestamp: 2026-10-23_17-47-33.028256
+# Original Length: 535 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/geocool$ [0mpython3 - <<'PY'
+from backend.app import map_config
+from urllib.parse import urlsplit
+c=map_config(); u=urlsplit(c['tile_url'])
+print({'provider':c['provider'],'label':c['label'],'host':u.netloc,'path_template':u.path,'has_query_key':bool(u.query),'fallback':c['fallback']})
+PY
+{'provider': 'osm', 'label': 'OpenStreetMap · CARTO key not configured', 'host': 'tile.openstreetmap.org', 'path_template': '/{z}/{x}/{y}.png', 'has_query_key': False, 'fallback': True}
+[32mubuntu@sandbox:~/geocool$ [0m

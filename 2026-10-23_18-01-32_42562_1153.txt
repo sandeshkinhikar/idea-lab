@@ -1,0 +1,11 @@
+# Terminal Full Output
+# Terminal: geocool-health
+# Command: curl --max-time 10 -fsS http://127.0.0.1:3000/health | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"ok":d.get("ok"),"database":d.get("database"),"demo_mode":d.get("demo_mode"),"latency_ms":d.get("latency_ms")}, sort_keys=True)); sys.exit(0 if d.get("ok") and d.get("demo_mode") else 1)'
+# PID: 1153
+# Timestamp: 2026-10-23_18-01-32.042562
+# Original Length: 610 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~$ [0mcurl --max-time 10 -fsS http://127.0.0.1:3000/health | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps({"ok":d.get("ok"),"database":d.get("database"),"demo_mode":d.get("demo_mode"),"latency_ms":d.get("latency_ms")}, sort_keys=True)); sys.exit(0 if d.get("ok") and d.get("demo_mode") else 1)'
+{"database": {"connected": true, "database": "local SQLite demo database", "demo": true, "demo_ward_count": 12, "engine": "sqlite", "provenance": "demo_synthetic", "ward_count": 12}, "demo_mode": true, "latency_ms": 3.93, "ok": true}
+[32mubuntu@sandbox:~/geocool$ [0m

@@ -1,0 +1,116 @@
+# Terminal Full Output
+# Terminal: geocool
+# Command: python3 - <<'PY'
+import json, urllib.request
+base='http://127.0.0.1:3000'
+def request(path, method='GET', payload=None, timeout=180):
+    data=None if payload is None else json.dumps(payload).encode()
+    req=urllib.request.Request(base+path,data=data,method=method,headers={'Content-Type':'application/json'} if data else {})
+    with urllib.request.urlopen(req,timeout=timeout) as r:
+        body=r.read()
+        try: parsed=json.loads(body)
+        except Exception: parsed=body
+        print(method,path,r.status,r.headers.get_content_type(),len(body))
+        return parsed,r.headers
+for job in ['raster','java','dataset','train_and_predict']:
+    d,_=request('/api/pipeline/preflight/'+job)
+    print(' preflight:', d)
+result,_=request('/api/model/train','POST',{'split_ratio':0.2,'folds':3,'seed':42},timeout=180)
+res=result.get('result',{})
+print(' training provenance:',res.get('provenance'),'demo:',res.get('demo'),'validation:',res.get('validation'))
+for m in res.get('metrics',[]):
+    print(' model:',m.get('algo'),'available:',m.get('available',True),'f1:',m.get('f1'),'rmse:',m.get('rmse'),'kfold:',(m.get('kfold') or {}).get('available'))
+metrics,_=request('/api/metrics')
+print(' metrics rows:',len(metrics.get('metrics',[])),'demo:',metrics.get('demo'),'status:',metrics.get('status'))
+pred,_=request('/api/model/predict','POST',{})
+print(' predictions:',pred.get('persisted'),'demo:',pred.get('demo'))
+explain,_=request('/api/explain/DEMO-01')
+print(' explanation fields:',sorted(explain.keys()),'contributions:',len(explain.get('contributions',[])))
+for path in ['/api/export/csv','/api/export/pdf']:
+    _,headers=request(path)
+    print(' export disposition:',headers.get('Content-Disposition'))
+thresholds,_=request('/api/settings/thresholds','PUT',{'low_max':0.25,'moderate_max':0.5,'high_max':0.75,'temperature_max':35})
+print(' thresholds persisted:',thresholds)
+health,_=request('/api/health')
+print(' health:',health.get('ok'),health.get('database',{}).get('engine'),health.get('rasters',{}).get('present_count'))
+with urllib.request.urlopen(base+'/openapi.json') as r:
+    api=json.load(r)
+print(' api paths:',', '.join(sorted(api.get('paths',{}))))
+PY
+# PID: 1153
+# Timestamp: 2026-10-23_17-11-27.596827
+# Original Length: 7538 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/geocool$ [0mpython3 - <<'PY'
+import json, urllib.request
+base='http://127.0.0.1:3000'
+def request(path, method='GET', payload=None, timeout=180):
+    data=None if payload is None else json.dumps(payload).encode()
+    req=urllib.request.Request(base+path,data=data,method=method,headers={'Content-Type':'application/json'} if data else {})
+    with urllib.request.urlopen(req,timeout=timeout) as r:
+        body=r.read()
+        try: parsed=json.loads(body)
+        except Exception: parsed=body
+        print(method,path,r.status,r.headers.get_content_type(),len(body))
+        return parsed,r.headers
+for job in ['raster','java','dataset','train_and_predict']:
+    d,_=request('/api/pipeline/preflight/'+job)
+    print(' preflight:', d)
+result,_=request('/api/model/train','POST',{'split_ratio':0.2,'folds':3,'seed':42},timeout=180)
+res=result.get('result',{})
+print(' training provenance:',res.get('provenance'),'demo:',res.get('demo'),'validation:',res.get('validation'))
+for m in res.get('metrics',[]):
+    print(' model:',m.get('algo'),'available:',m.get('available',True),'f1:',m.get('f1'),'rmse:',m.get('rmse'),'kfold:',(m.get('kfold') or {}).get('available'))
+metrics,_=request('/api/metrics')
+print(' metrics rows:',len(metrics.get('metrics',[])),'demo:',metrics.get('demo'),'status:',metrics.get('status'))
+pred,_=request('/api/model/predict','POST',{})
+print(' predictions:',pred.get('persisted'),'demo:',pred.get('demo'))
+explain,_=request('/api/explain/DEMO-01')
+print(' explanation fields:',sorted(explain.keys()),'contributions:',len(explain.get('contributions',[])))
+for path in ['/api/export/csv','/api/export/pdf']:
+    _,headers=request(path)
+    print(' export disposition:',headers.get('Content-Disposition'))
+thresholds,_=request('/api/settings/thresholds','PUT',{'low_max':0.25,'moderate_max':0.5,'high_max':0.75,'temperature_max':35})
+print(' thresholds persisted:',thresholds)
+health,_=request('/api/health')
+print(' health:',health.get('ok'),health.get('database',{}).get('engine'),health.get('rasters',{}).get('present_count'))
+with urllib.request.urlopen(base+'/openapi.json') as r:
+    api=json.load(r)
+print(' api paths:',', '.join(sorted(api.get('paths',{}))))
+PY
+GET /api/pipeline/preflight/raster 200 application/json 1081
+ preflight: {'job_name': 'raster', 'ok': False, 'checks': [{'name': 'Earth Engine downloader', 'ok': True, 'detail': '/home/ubuntu/geocool/scripts/1_download_rasters.py'}, {'name': 'earthengine-api', 'ok': False, 'detail': 'Not installed; install earthengine-api before downloading.'}, {'name': 'geemap', 'ok': False, 'detail': 'Not installed; install geemap before downloading.'}, {'name': 'Earth Engine credentials', 'ok': False, 'detail': 'No readable Earth Engine/Google credential file detected.
+ Run `earthengine authenticate` or configure a service-account credential file; preflight cannot verify token validity.'}, {'name': 'Transfer fallback', 'ok': True, 'detail': 'Direct export is followed once by bounded Earth Engine tiles and an atomic rasterio GeoTIFF mosaic if any source output is missing or invalid.'}, {'name': 'Raster mosaic dependency', 'ok': False, 'detail': 'Install rasterio from requirements-pipeline.txt to merge bounded export tiles.'}, {'name': 'Chunked transfer fallback
+', 'ok': True, 'detail': 'Verified tile download and GeoTIFF mosaic fallback is available.'}], 'checked_at': '2026-10-23T17:11:20.186+00:00'}
+GET /api/pipeline/preflight/java 200 application/json 350
+ preflight: {'job_name': 'java', 'ok': False, 'checks': [{'name': 'Legacy Java downloader', 'ok': True, 'detail': 'Warning: legacy downloader targets its hard-coded /nagpur/5km_radius/ S3 area, not the canonical ROI.'}, {'name': 'Java compiler/runtime', 'ok': False, 'detail': 'Install a JDK (javac and java) to use the fallback.'}], 'checked_at': '2026-10-23T17:11:20.196+00:00'}
+GET /api/pipeline/preflight/dataset 200 application/json 639
+ preflight: {'job_name': 'dataset', 'ok': False, 'checks': [{'name': 'Dataset builder', 'ok': True, 'detail': '/home/ubuntu/geocool/scripts/2_build_real_dataset.py'}, {'name': 'Raster inputs', 'ok': False, 'detail': 'Missing/empty GeoTIFF input(s): nagpur_lst.tif, nagpur_ndvi.tif, nagpur_slope.tif, nagpur_pop.tif. Run the Earth Engine or Java raster job first; the original builder otherwise substitutes zeros.'}, {'name': 'GIS dependencies', 'ok': False, 'detail': 'Install pipeline extras; missin
+g: osmnx, geopandas, rasterstats.'}, {'name': 'Geometry wrapper', 'ok': True, 'detail': 'Geometry-preserving wrapper is available.'}], 'checked_at': '2026-10-23T17:11:20.997+00:00'}
+GET /api/pipeline/preflight/train_and_predict 200 application/json 253
+ preflight: {'job_name': 'train_and_predict', 'ok': True, 'checks': [{'name': 'ML dependencies', 'ok': True, 'detail': 'scikit-learn available.'}, {'name': 'Training data', 'ok': True, 'detail': 'A demo JSON or processed CSV exists.'}], 'checked_at': '2026-10-23T17:11:22.917+00:00'}
+POST /api/model/train 200 application/json 6630
+ training provenance: demo_synthetic demo: True validation: {'split': 'spatial_group_holdout', 'temporal_holdout_available': False, 'spatial_groups': 6, 'held_out_groups': ['422:1580', '422:1581'], 'note': 'Spatial grid blocks are kept on one side of the holdout; temporal fields were absent from the source feature table.'}
+ model: LinearRegression available: True f1: 0.75 rmse: 2.7967219898117202e-08 kfold: True
+ model: RandomForestClassifier available: True f1: 0.5 rmse: 0.08204885779172731 kfold: True
+ model: RandomForestRegressor available: True f1: 0.5 rmse: 0.1396694717839299 kfold: True
+ model: XGBoostClassifier available: False f1: None rmse: None kfold: None
+ model: XGBoostRegressor available: True f1: 0.5 rmse: 0.12761608502118293 kfold: True
+GET /api/metrics 200 application/json 14026
+ metrics rows: 7 demo: True status: ready
+POST /api/model/predict 200 application/json 5648
+ predictions: 12 demo: True
+GET /api/explain/DEMO-01 200 application/json 2995
+ explanation fields: ['ahp_score', 'constant_inputs', 'contributions', 'demo', 'explanation', 'feature_details', 'methodology', 'ml_score', 'provenance', 'risk_class', 'score_basis', 'ward_id', 'weak_label', 'weights'] contributions: 5
+GET /api/export/csv 200 text/csv 7516
+ export disposition: attachment; filename=geocool_edges.csv
+GET /api/export/pdf 200 application/pdf 1660
+ export disposition: attachment; filename=geocool_report.pdf
+PUT /api/settings/thresholds 200 application/json 269
+ thresholds persisted: {'thresholds': {'low_max': 0.25, 'moderate_max': 0.5, 'high_max': 0.75, 'temperature_max': 35.0}, 'reclassified': True, 'message': 'Ward and street risk classes are calculated from these thresholds on each request; base scores remain unchanged.', 'provenance': 'application_setting'}
+GET /api/health 200 application/json 841
+ health: True sqlite 0
+ api paths: /api/alerts, /api/alerts/simulate, /api/alerts/{alert_id}, /api/data/files, /api/edges, /api/explain/{ward_id}, /api/export/alerts.csv, /api/export/csv, /api/export/pdf, /api/health, /api/metrics, /api/model/experiment, /api/model/predict, /api/model/train, /api/pipeline/dataset, /api/pipeline/java, /api/pipeline/jobs, /api/pipeline/jobs/{job_id}, /api/pipeline/jobs/{job_id}/events, /api/pipeline/model, /api/pipeline/preflight/{job_name}, /api/pipeline/raster, /api/refresh, /api/sett
+ings/demo-mode, /api/settings/thresholds, /api/wards, /api/wards/{ward_id}, /api/wards/{ward_id}/sensor-history, /api/wards/{ward_id}/streets, /health
+[32mubuntu@sandbox:~/geocool$ [0m

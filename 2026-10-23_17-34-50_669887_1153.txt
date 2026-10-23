@@ -1,0 +1,41 @@
+# Terminal Full Output
+# Terminal: geocool
+# Command: python3 - <<'PY'
+import json,urllib.request
+base='http://127.0.0.1:3000'
+def req(path,method='GET',data=None):
+ body=None if data is None else json.dumps(data).encode()
+ r=urllib.request.Request(base+path,data=body,method=method,headers={'Content-Type':'application/json'} if body is not None else {})
+ with urllib.request.urlopen(r,timeout=15) as response:return json.load(response)
+previous=req('/api/settings/thresholds')['thresholds']
+thresholds={'low_max':0.25,'moderate_max':0.5,'high_max':0.75,'temperature_max':35.0}
+req('/api/settings/thresholds','PUT',thresholds)
+req('/api/settings/demo-mode','PUT',{'enabled':True})
+payload=req('/api/wards')
+wards=payload.get('wards',payload if isinstance(payload,list) else [])
+from collections import Counter
+print(json.dumps({'previous_thresholds':previous,'final_thresholds':thresholds,'demo_mode':True,'risk_classes':dict(Counter(str(w.get('risk_class')) for w in wards))}))
+PY
+# PID: 1153
+# Timestamp: 2026-10-23_17-34-50.669887
+# Original Length: 1282 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/geocool$ [0mpython3 - <<'PY'
+import json,urllib.request
+base='http://127.0.0.1:3000'
+def req(path,method='GET',data=None):
+ body=None if data is None else json.dumps(data).encode()
+ r=urllib.request.Request(base+path,data=body,method=method,headers={'Content-Type':'application/json'} if body is not None else {})
+ with urllib.request.urlopen(r,timeout=15) as response:return json.load(response)
+previous=req('/api/settings/thresholds')['thresholds']
+thresholds={'low_max':0.25,'moderate_max':0.5,'high_max':0.75,'temperature_max':35.0}
+req('/api/settings/thresholds','PUT',thresholds)
+req('/api/settings/demo-mode','PUT',{'enabled':True})
+payload=req('/api/wards')
+wards=payload.get('wards',payload if isinstance(payload,list) else [])
+from collections import Counter
+print(json.dumps({'previous_thresholds':previous,'final_thresholds':thresholds,'demo_mode':True,'risk_classes':dict(Counter(str(w.get('risk_class')) for w in wards))}))
+PY
+{"previous_thresholds": {"low_max": 0.25, "moderate_max": 0.5, "high_max": 0.75, "temperature_max": 35.0}, "final_thresholds": {"low_max": 0.25, "moderate_max": 0.5, "high_max": 0.75, "temperature_max": 35.0}, "demo_mode": true, "risk_classes": {"Low": 4, "Moderate": 6, "High": 2}}
+[32mubuntu@sandbox:~/geocool$ [0m

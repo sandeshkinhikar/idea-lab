@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.sqlite
+*.db
+models/*.joblib
+models/*.pkl
+data/demo_data.json
+data/raw/*.tif
+data/processed/edge_suitability.csv
+.DS_Store

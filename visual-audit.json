@@ -1,0 +1,221 @@
+{
+  "screenshots": [
+    {
+      "theme": "light",
+      "route": "/",
+      "http": 200,
+      "title": "Climate risk overview",
+      "content_chars": 2054,
+      "map_features": 12,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 376 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-overview.png",
+      "screenshot_bytes": 833856
+    },
+    {
+      "theme": "light",
+      "route": "/ward/DEMO-01",
+      "http": 200,
+      "title": "Ward detail",
+      "content_chars": 1956,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 197 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-ward-detail.png",
+      "screenshot_bytes": 294199
+    },
+    {
+      "theme": "light",
+      "route": "/alerts",
+      "http": 200,
+      "title": "Heat risk alerts",
+      "content_chars": 2101,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 227 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-alerts.png",
+      "screenshot_bytes": 309625
+    },
+    {
+      "theme": "light",
+      "route": "/metrics",
+      "http": 200,
+      "title": "Model & metrics",
+      "content_chars": 4956,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 559 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-metrics.png",
+      "screenshot_bytes": 630407
+    },
+    {
+      "theme": "light",
+      "route": "/data",
+      "http": 200,
+      "title": "Data & pipeline",
+      "content_chars": 8450,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 800 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-data-pipeline.png",
+      "screenshot_bytes": 568069
+    },
+    {
+      "theme": "light",
+      "route": "/settings",
+      "http": 200,
+      "title": "Settings",
+      "content_chars": 875,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 103 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-settings.png",
+      "screenshot_bytes": 169385
+    },
+    {
+      "theme": "light",
+      "route": "/how",
+      "http": 200,
+      "title": "How this works",
+      "content_chars": 2225,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 142 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-how-this-works.png",
+      "screenshot_bytes": 299125
+    },
+    {
+      "theme": "dark",
+      "route": "/",
+      "http": 200,
+      "title": "Climate risk overview",
+      "content_chars": 2054,
+      "map_features": 12,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 376 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-overview.png",
+      "screenshot_bytes": 838602
+    },
+    {
+      "theme": "dark",
+      "route": "/ward/DEMO-01",
+      "http": 200,
+      "title": "Ward detail",
+      "content_chars": 1956,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 197 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-ward-detail.png",
+      "screenshot_bytes": 297246
+    },
+    {
+      "theme": "dark",
+      "route": "/alerts",
+      "http": 200,
+      "title": "Heat risk alerts",
+      "content_chars": 2101,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 227 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-alerts.png",
+      "screenshot_bytes": 314770
+    },
+    {
+      "theme": "dark",
+      "route": "/metrics",
+      "http": 200,
+      "title": "Model & metrics",
+      "content_chars": 4956,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 559 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-metrics.png",
+      "screenshot_bytes": 640165
+    },
+    {
+      "theme": "dark",
+      "route": "/data",
+      "http": 200,
+      "title": "Data & pipeline",
+      "content_chars": 8450,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 800 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-data-pipeline.png",
+      "screenshot_bytes": 573562
+    },
+    {
+      "theme": "dark",
+      "route": "/settings",
+      "http": 200,
+      "title": "Settings",
+      "content_chars": 875,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 103 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-settings.png",
+      "screenshot_bytes": 171119
+    },
+    {
+      "theme": "dark",
+      "route": "/how",
+      "http": 200,
+      "title": "How this works",
+      "content_chars": 2225,
+      "map_features": null,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 142 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-how-this-works.png",
+      "screenshot_bytes": 304757
+    }
+  ],
+  "popup_checks": [
+    {
+      "theme": "light",
+      "kind": "ward-popup",
+      "has_top3": true,
+      "has_ahp_weights": true,
+      "has_ml_ahp_scores": true,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 433 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-overview-explanation-popup.png",
+      "bytes": 741950
+    },
+    {
+      "theme": "dark",
+      "kind": "ward-popup",
+      "has_top3": true,
+      "has_ahp_weights": true,
+      "has_ml_ahp_scores": true,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 433 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-overview-explanation-popup.png",
+      "bytes": 747926
+    },
+    {
+      "theme": "light",
+      "kind": "street-popup",
+      "has_edge_scores": true,
+      "has_top3": true,
+      "has_ahp_weights": true,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 432 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/light-street-explanation-popup.png",
+      "bytes": 770216
+    },
+    {
+      "theme": "dark",
+      "kind": "street-popup",
+      "has_edge_scores": true,
+      "has_top3": true,
+      "has_ahp_weights": true,
+      "audit_failures": 0,
+      "audit_result": "Contrast audit: 0 failure(s) \u2014 0 text pair(s) below WCAG AA and 0 focus indicator(s) below 3:1; checked 432 text elements.",
+      "screenshot": "/home/ubuntu/geocool/screenshots/dark-street-explanation-popup.png",
+      "bytes": 776260
+    }
+  ],
+  "page_errors": [],
+  "audit_failures_total": 0,
+  "audit_result_count": 18
+}

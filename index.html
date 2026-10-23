@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1E3A8A">
+  <meta name="description" content="Explainable GIS urban climate risk mapping prototype for Nagpur smart city planning.">
+  <title>GeoCool | Nagpur Climate Risk</title>
+  <link rel="stylesheet" href="/assets/css/theme.css">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js" defer></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+  <script src="/assets/js/api.js" defer></script>
+  <script src="/assets/js/charts.js" defer></script>
+  <script src="/assets/js/map.js" defer></script>
+  <script src="/assets/js/contrast-audit.js" defer></script>
+  <script src="/assets/js/ui.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="GeoCool overview">
+      <span class="brand-mark" aria-hidden="true">G</span>
+      <span><span class="brand-word">GeoCool</span><span class="brand-sub">Nagpur</span></span>
+    </a>
+    <div class="topbar-title" id="topbar-title">Urban Climate Risk Observatory</div>
+    <div class="topbar-actions">
+      <span class="badge badge-demo" id="data-provenance">DEMO DATA</span>
+      <button class="icon-button" type="button" id="theme-toggle" aria-label="Switch to dark mode" title="Switch light or dark theme">◐</button>
+    </div>
+  </header>
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="Main navigation">
+      <p class="nav-group-label">Workspace</p>
+      <ul class="nav-list">
+        <li><a class="nav-link" href="/" data-route="/"><span class="nav-icon" aria-hidden="true">⌂</span><span class="nav-text">Overview</span></a></li>
+        <li><a class="nav-link" href="/alerts" data-route="/alerts"><span class="nav-icon" aria-hidden="true">◉</span><span class="nav-text">Alerts</span></a></li>
+        <li><a class="nav-link" href="/metrics" data-route="/metrics"><span class="nav-icon" aria-hidden="true">▥</span><span class="nav-text">Model &amp; Metrics</span></a></li>
+        <li><a class="nav-link" href="/data" data-route="/data"><span class="nav-icon" aria-hidden="true">▤</span><span class="nav-text">Data &amp; Pipeline</span></a></li>
+      </ul>
+      <p class="nav-group-label">Configuration</p>
+      <ul class="nav-list">
+        <li><a class="nav-link" href="/settings" data-route="/settings"><span class="nav-icon" aria-hidden="true">⚙</span><span class="nav-text">Settings</span></a></li>
+        <li><a class="nav-link" href="/how" data-route="/how"><span class="nav-icon" aria-hidden="true">ⓘ</span><span class="nav-text">How This Works</span></a></li>
+      </ul>
+      <div class="sidebar-note">
+        <strong><span class="status-dot warning"></span>Demo environment</strong>
+        <p>Seeded wards and sensor readings are synthetic, not official NMC or satellite observations.</p>
+      </div>
+    </aside>
+    <main class="main-content" id="main-content" tabindex="-1" aria-live="polite">
+      <div class="page-heading">
+        <div>
+          <p class="eyebrow" id="page-eyebrow">Nagpur · Urban heat and exposure</p>
+          <h1 id="page-title">Climate risk overview</h1>
+          <p id="page-description">Explore ward-level heat risk, street conditions, and the evidence behind each score.</p>
+        </div>
+        <div class="heading-actions" id="heading-actions">
+          <button class="btn" type="button" data-action="refresh">↻ <span>Refresh</span></button>
+          <button class="btn btn-primary" type="button" data-action="export-csv">⇩ <span>Export CSV</span></button>
+        </div>
+      </div>
+      <div class="data-notice" role="note" id="demo-notice">
+        <span aria-hidden="true">ⓘ</span>
+        <div><strong>DEMO DATA</strong> — seeded synthetic wards, streets and sensor readings are shown until the real Earth Engine and OSM pipeline is run. Do not treat these values as measured Nagpur conditions.</div>
+      </div>
+      <div id="page-content" aria-busy="true"><div class="empty-state">Loading ward and model data…</div></div>
+      <p class="footer-note">This prototype replaces illustrative Chapter 5 figures with `/api/metrics` output. Any seeded metrics and records remain clearly marked <strong>DEMO DATA</strong>. AHP-derived labels are weak supervision, not field ground truth.</p>
+    </main>
+  </div>
+  <div class="toast-region" id="toast-region" aria-live="polite" aria-atomic="false"></div>
+  <div class="sr-only" id="sr-status" aria-live="polite"></div>
+</body>
+</html>

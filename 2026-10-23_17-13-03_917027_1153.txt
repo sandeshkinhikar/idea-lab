@@ -1,0 +1,657 @@
+# Terminal Full Output
+# Terminal: geocool
+# Command: python3 - <<'PY'
+from pathlib import Path
+p=Path('backend/ml/train.py')
+s=p.read_text()
+old='''    for name, kind, estimator in models:
+        try:
+            if kind == "classifier":
+                y = y_class
+                fit_options = {}
+                class_balance_policy = "class_weight='balanced'" if getattr(estimator, "class_weight", None) == "balanced" else "balanced sample_weight"
+                if getattr(estimator, "class_weight", None) != "balanced":
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    fit_options["sample_weight"] = compute_sample_weight("balanced", y[train_idx])
+                estimator.fit(x[train_idx], y[train_idx], **fit_options)
+                encoded_prediction = estimator.predict(x[test_idx]).astype(int)
+                predicted_class = encoder.inverse_transform(np.clip(encoded_prediction, 0, len(labels) - 1))
+                if hasattr(estimator, "predict_proba"):
+                    probabilities = estimator.predict_proba(x[test_idx])
+                    class_order = list(getattr(estimator, "classes_", []))
+                    predicted_risk = []
+                    for row_probs in probabilities:
+                        estimated = 0.0
+                        for column, encoded_label in enumerate(class_order):
+                            class_name = encoder.inverse_transform([int(encoded_label)])[0]
+                            estimated += float(row_probs[column]) * (labels.index(class_name) / 3.0)
+                        predicted_risk.append(estimated)
+                else:
+                    predicted_risk = [labels.index(value) / 3.0 for value in predicted_class]
+                true_classes = [str(v) for v in y_class_text[test_idx]]
+                result = _metrics(y_risk[test_idx].tolist(), list(predicted_risk), true_classes, list(predicted_class), labels, regression=True)
+                result["primary_task"] = "classification"
+                result["kfold"] = _kfold_report(estimator, x[train_idx], y_class[train_idx], labels, classifier=True, folds=int(folds), seed=int(seed), groups=cv_groups[train_idx] if cv_groups is not None else None)
+'''
+new='''    for name, kind, estimator in models:
+        classifier_class_codes = None
+        try:
+            if kind == "classifier":
+                y = y_class
+                fit_options = {}
+                class_balance_policy = "class_weight='balanced'" if getattr(estimator, "class_weight", None) == "balanced" else "balanced sample_weight"
+                fit_target = y[train_idx]
+                if name == "XGBoostClassifier":
+                    # XGBoost's sklearn wrapper requires labels 0..K-1. A
+                    # spatial holdout can leave a valid but non-contiguous
+                    # subset (for example classes 1,2,3) on the training side.
+                    classifier_class_codes = sorted(int(value) for value in np.unique(fit_target))
+                    if len(classifier_class_codes) < 2:
+                        raise ValueError("XGBoost classifier needs at least two observed classes in the spatial/temporal training split.")
+                    fit_target = np.asarray([classifier_class_codes.index(int(value)) for value in fit_target], dtype=int)
+                if getattr(estimator, "class_weight", None) != "balanced":
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    fit_options["sample_weight"] = compute_sample_weight("balanced", fit_target)
+                estimator.fit(x[train_idx], fit_target, **fit_options)
+                local_prediction = estimator.predict(x[test_idx]).astype(int)
+                if classifier_class_codes is not None:
+                    global_prediction = np.asarray([classifier_class_codes[int(np.clip(value, 0, len(classifier_class_codes) - 1))] for value in local_prediction], dtype=int)
+                    class_code_map = classifier_class_codes
+                else:
+                    global_prediction = np.clip(local_prediction, 0, len(labels) - 1)
+                    class_code_map = list(range(len(encoder.classes_)))
+                predicted_class = encoder.inverse_transform(global_prediction)
+                if hasattr(estimator, "predict_proba"):
+                    probabilities = estimator.predict_proba(x[test_idx])
+                    class_order = list(getattr(estimator, "classes_", []))
+                    predicted_risk = []
+                    for row_probs in probabilities:
+                        estimated = 0.0
+                        for column, encoded_label in enumerate(class_order):
+                            global_code = class_code_map[int(encoded_label)] if int(encoded_label) < len(class_code_map) else int(encoded_label)
+                            class_name = encoder.inverse_transform([global_code])[0]
+                            estimated += float(row_probs[column]) * (labels.index(class_name) / 3.0)
+                        predicted_risk.append(estimated)
+                else:
+                    predicted_risk = [labels.index(value) / 3.0 for value in predicted_class]
+                true_classes = [str(v) for v in y_class_text[test_idx]]
+                result = _metrics(y_risk[test_idx].tolist(), list(predicted_risk), true_classes, list(predicted_class), labels, regression=True)
+                result["primary_task"] = "classification"
+                cv_target = y[train_idx]
+                if classifier_class_codes is not None:
+                    cv_target = np.asarray([classifier_class_codes.index(int(value)) for value in cv_target], dtype=int)
+                result["kfold"] = _kfold_report(estimator, x[train_idx], cv_target, labels, classifier=True, folds=int(folds), seed=int(seed), groups=cv_groups[train_idx] if cv_groups is not None else None)
+'''
+if s.count(old)!=1: raise SystemExit(f'classifier block expected once, found {s.count(old)}')
+s=s.replace(old,new,1)
+old='"class_encoder_classes": [str(value) for value in encoder.classes_], "trained_at":'
+new='"class_encoder_classes": [str(value) for value in encoder.classes_], "classifier_class_codes": classifier_class_codes, "trained_at":'
+if s.count(old)!=1: raise SystemExit(f'artifact mapping insertion expected once, found {s.count(old)}')
+s=s.replace(old,new,1)
+p.write_text(s)
+
+p=Path('backend/ml/predict.py')
+s=p.read_text()
+old='''    if hasattr(estimator, "predict_proba"):
+        probabilities = np.asarray(estimator.predict_proba(matrix), dtype=float)
+        encoded_labels = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+        class_ids = list(getattr(estimator, "classes_", range(probabilities.shape[1])))
+        risks = []
+        for row in probabilities:
+            estimate = 0.0
+            for col, encoded_id in enumerate(class_ids):
+                try:
+                    label = str(encoded_labels[int(encoded_id)])
+                    ordinal = CLASS_NAMES.index(label)
+                except (IndexError, ValueError, TypeError):
+                    ordinal = 0
+                estimate += float(row[col]) * ordinal / 3.0
+            risks.append(estimate)
+        return np.clip(np.asarray(risks), 0.0, 1.0), estimator.__class__.__name__
+    predicted = np.asarray(estimator.predict(matrix), dtype=int).reshape(-1)
+    class_names = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+    risks = []
+    for value in predicted:
+        try:
+            label = str(class_names[int(value)])
+            risks.append(CLASS_NAMES.index(label) / 3.0)
+        except (IndexError, ValueError):
+            risks.append(0.0)
+'''
+new='''    class_codes = artifact.get("classifier_class_codes")
+    encoded_labels = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+    def label_for(encoded_id: Any) -> str:
+        local_id = int(encoded_id)
+        global_id = int(class_codes[local_id]) if isinstance(class_codes, list) and 0 <= local_id < len(class_codes) else local_id
+        try:
+            return str(encoded_labels[global_id])
+        except (IndexError, TypeError):
+            return "Low"
+    if hasattr(estimator, "predict_proba"):
+        probabilities = np.asarray(estimator.predict_proba(matrix), dtype=float)
+        class_ids = list(getattr(estimator, "classes_", range(probabilities.shape[1])))
+        risks = []
+        for row in probabilities:
+            estimate = 0.0
+            for col, encoded_id in enumerate(class_ids):
+                try:
+                    ordinal = CLASS_NAMES.index(label_for(encoded_id))
+                except ValueError:
+                    ordinal = 0
+                estimate += float(row[col]) * ordinal / 3.0
+            risks.append(estimate)
+        return np.clip(np.asarray(risks), 0.0, 1.0), estimator.__class__.__name__
+    predicted = np.asarray(estimator.predict(matrix), dtype=int).reshape(-1)
+    risks = []
+    for value in predicted:
+        try:
+            risks.append(CLASS_NAMES.index(label_for(value)) / 3.0)
+        except ValueError:
+            risks.append(0.0)
+'''
+if s.count(old)!=1: raise SystemExit(f'prediction mapping block expected once, found {s.count(old)}')
+p.write_text(s.replace(old,new,1))
+
+p=Path('backend/ml/explain.py')
+s=p.read_text()
+old='''            target = np.asarray([float(row["risk"]) for row in rows], dtype=float)
+            importance_result = compute_permutation_importance(estimator, matrix, target, n_repeats=8, random_state=42, scoring="neg_mean_absolute_error")
+            raw = np.maximum(0.0, np.asarray(importance_result.importances_mean, dtype=float))
+            permutation_importances = {name: float(raw[i]) for i, name in enumerate(names)}
+            baseline = np.asarray(estimator.predict(point.reshape(1, -1)), dtype=float).reshape(-1)
+            base_value = float(baseline[0])
+            medians = np.median(matrix, axis=0)
+            signed_values = []
+            # Direction is the local change in predicted risk when a feature is
+            # moved to its training median. Importance provides its global
+            # permutation-derived magnitude/ranking (the method is not SHAP).
+            local_changes = []
+            for i in range(len(names)):
+                modified = point.copy()
+                modified[i] = medians[i]
+                changed = float(np.asarray(estimator.predict(modified.reshape(1, -1))).reshape(-1)[0])
+                local_changes.append(base_value - changed)
+'''
+new='''            is_classifier = "classifier" in estimator.__class__.__name__.lower()
+            class_codes = artifact.get("classifier_class_codes")
+            if is_classifier:
+                encoder_classes = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+                eligible = []
+                target_values = []
+                for index, row in enumerate(rows):
+                    try:
+                        global_code = encoder_classes.index(str(row["label"]))
+                        if isinstance(class_codes, list):
+                            if global_code not in class_codes:
+                                continue
+                            target_values.append(class_codes.index(global_code))
+                        else:
+                            target_values.append(global_code)
+                        eligible.append(index)
+                    except (KeyError, ValueError):
+                        continue
+                if len(eligible) < 2:
+                    raise ValueError("Not enough training-class rows to compute classifier permutation importance.")
+                importance_result = compute_permutation_importance(estimator, matrix[eligible], np.asarray(target_values), n_repeats=8, random_state=42, scoring="accuracy")
+            else:
+                target = np.asarray([float(row["risk"]) for row in rows], dtype=float)
+                importance_result = compute_permutation_importance(estimator, matrix, target, n_repeats=8, random_state=42, scoring="neg_mean_absolute_error")
+            raw = np.maximum(0.0, np.asarray(importance_result.importances_mean, dtype=float))
+            permutation_importances = {name: float(raw[i]) for i, name in enumerate(names)}
+            base_value = float(_risk_estimate(artifact, point.reshape(1, -1))[0][0])
+            medians = np.median(matrix, axis=0)
+            signed_values = []
+            # Direction is the local change in predicted risk when a feature is
+            # moved to its training median. Importance provides its global
+            # permutation-derived magnitude/ranking (the method is not SHAP).
+            local_changes = []
+            for i in range(len(names)):
+                modified = point.copy()
+                modified[i] = medians[i]
+                changed = float(_risk_estimate(artifact, modified.reshape(1, -1))[0][0])
+                local_changes.append(base_value - changed)
+'''
+if s.count(old)!=1: raise SystemExit(f'explanation fallback block expected once, found {s.count(old)}')
+p.write_text(s.replace(old,new,1))
+print('Updated training, inference, and explainability class remapping.')
+PY
+python3 -m py_compile backend/ml/train.py backend/ml/predict.py backend/ml/explain.py
+# PID: 1153
+# Timestamp: 2026-10-23_17-13-03.917027
+# Original Length: 26675 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/geocool$ [0mpython3 - <<'PY'
+from pathlib import Path
+p=Path('backend/ml/train.py')
+s=p.read_text()
+old='''    for name, kind, estimator in models:
+        try:
+            if kind == "classifier":
+                y = y_class
+                fit_options = {}
+                class_balance_policy = "class_weight='balanced'" if getattr(estimator, "class_weight", None) == "balanced" else "balanced sample_weight"
+                if getattr(estimator, "class_weight", None) != "balanced":
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    fit_options["sample_weight"] = compute_sample_weight("balanced", y[train_idx])
+                estimator.fit(x[train_idx], y[train_idx], **fit_options)
+                encoded_prediction = estimator.predict(x[test_idx]).astype(int)
+                predicted_class = encoder.inverse_transform(np.clip(encoded_prediction, 0, len(labels) - 1))
+                if hasattr(estimator, "predict_proba"):
+                    probabilities = estimator.predict_proba(x[test_idx])
+                    class_order = list(getattr(estimator, "classes_", []))
+                    predicted_risk = []
+                    for row_probs in probabilities:
+                        estimated = 0.0
+                        for column, encoded_label in enumerate(class_order):
+                            class_name = encoder.inverse_transform([int(encoded_label)])[0]
+                            estimated += float(row_probs[column]) * (labels.index(class_name) / 3.0)
+                        predicted_risk.append(estimated)
+                else:
+                    predicted_risk = [labels.index(value) / 3.0 for value in predicted_class]
+                true_classes = [str(v) for v in y_class_text[test_idx]]
+                result = _metrics(y_risk[test_idx].tolist(), list(predicted_risk), true_classes, list(predicted_class), labels, regression=True)
+                result["primary_task"] = "classification"
+                result["kfold"] = _kfold_report(estimator, x[train_idx], y_class[train_idx], labels, classifier=True, folds=int(folds), seed=int(seed), groups=cv_groups[train_idx] if cv_groups is not None else None)
+'''
+new='''    for name, kind, estimator in models:
+        classifier_class_codes = None
+        try:
+            if kind == "classifier":
+                y = y_class
+                fit_options = {}
+                class_balance_policy = "class_weight='balanced'" if getattr(estimator, "class_weight", None) == "balanced" else "balanced sample_weight"
+                fit_target = y[train_idx]
+                if name == "XGBoostClassifier":
+                    # XGBoost's sklearn wrapper requires labels 0..K-1. A
+                    # spatial holdout can leave a valid but non-contiguous
+                    # subset (for example classes 1,2,3) on the training side.
+                    classifier_class_codes = sorted(int(value) for value in np.unique(fit_target))
+                    if len(classifier_class_codes) < 2:
+                        raise ValueError("XGBoost classifier needs at least two observed classes in the spatial/temporal training split.")
+                    fit_target = np.asarray([classifier_class_codes.index(int(value)) for value in fit_target], dtype=int)
+                if getattr(estimator, "class_weight", None) != "balanced":
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    fit_options["sample_weight"] = compute_sample_weight("balanced", fit_target)
+                estimator.fit(x[train_idx], fit_target, **fit_options)
+                local_prediction = estimator.predict(x[test_idx]).astype(int)
+                if classifier_class_codes is not None:
+                    global_prediction = np.asarray([classifier_class_codes[int(np.clip(value, 0, len(classifier_class_codes) - 1))] for value in local_prediction], dtype=int)
+                    class_code_map = classifier_class_codes
+                else:
+                    global_prediction = np.clip(local_prediction, 0, len(labels) - 1)
+                    class_code_map = list(range(len(encoder.classes_)))
+                predicted_class = encoder.inverse_transform(global_prediction)
+                if hasattr(estimator, "predict_proba"):
+                    probabilities = estimator.predict_proba(x[test_idx])
+                    class_order = list(getattr(estimator, "classes_", []))
+                    predicted_risk = []
+                    for row_probs in probabilities:
+                        estimated = 0.0
+                        for column, encoded_label in enumerate(class_order):
+                            global_code = class_code_map[int(encoded_label)] if int(encoded_label) < len(class_code_map) else int(encoded_label)
+                            class_name = encoder.inverse_transform([global_code])[0]
+                            estimated += float(row_probs[column]) * (labels.index(class_name) / 3.0)
+                        predicted_risk.append(estimated)
+                else:
+                    predicted_risk = [labels.index(value) / 3.0 for value in predicted_class]
+                true_classes = [str(v) for v in y_class_text[test_idx]]
+                result = _metrics(y_risk[test_idx].tolist(), list(predicted_risk), true_classes, list(predicted_class), labels, regression=True)
+                result["primary_task"] = "classification"
+                cv_target = y[train_idx]
+                if classifier_class_codes is not None:
+                    cv_target = np.asarray([classifier_class_codes.index(int(value)) for value in cv_target], dtype=int)
+                result["kfold"] = _kfold_report(estimator, x[train_idx], cv_target, labels, classifier=True, folds=int(folds), seed=int(seed), groups=cv_groups[train_idx] if cv_groups is not None else None)
+'''
+if s.count(old)!=1: raise SystemExit(f'classifier block expected once, found {s.count(old)}')
+s=s.replace(old,new,1)
+old='"class_encoder_classes": [str(value) for value in encoder.classes_], "trained_at":'
+new='"class_encoder_classes": [str(value) for value in encoder.classes_], "classifier_class_codes": classifier_class_codes, "trained_at":'
+if s.count(old)!=1: raise SystemExit(f'artifact mapping insertion expected once, found {s.count(old)}')
+s=s.replace(old,new,1)
+p.write_text(s)
+
+p=Path('backend/ml/predict.py')
+s=p.read_text()
+old='''    if hasattr(estimator, "predict_proba"):
+        probabilities = np.asarray(estimator.predict_proba(matrix), dtype=float)
+        encoded_labels = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+        class_ids = list(getattr(estimator, "classes_", range(probabilities.shape[1])))
+        risks = []
+        for row in probabilities:
+            estimate = 0.0
+            for col, encoded_id in enumerate(class_ids):
+                try:
+                    label = str(encoded_labels[int(encoded_id)])
+                    ordinal = CLASS_NAMES.index(label)
+                except (IndexError, ValueError, TypeError):
+                    ordinal = 0
+                estimate += float(row[col]) * ordinal / 3.0
+            risks.append(estimate)
+        return np.clip(np.asarray(risks), 0.0, 1.0), estimator.__class__.__name__
+    predicted = np.asarray(estimator.predict(matrix), dtype=int).reshape(-1)
+    class_names = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+    risks = []
+    for value in predicted:
+        try:
+            label = str(class_names[int(value)])
+            risks.append(CLASS_NAMES.index(label) / 3.0)
+        except (IndexError, ValueError):
+            risks.append(0.0)
+'''
+new='''    class_codes = artifact.get("classifier_class_codes")
+    encoded_labels = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+    def label_for(encoded_id: Any) -> str:
+        local_id = int(encoded_id)
+        global_id = int(class_codes[local_id]) if isinstance(class_codes, list) and 0 <= local_id < len(class_codes) else local_id
+        try:
+            return str(encoded_labels[global_id])
+        except (IndexError, TypeError):
+            return "Low"
+    if hasattr(estimator, "predict_proba"):
+        probabilities = np.asarray(estimator.predict_proba(matrix), dtype=float)
+        class_ids = list(getattr(estimator, "classes_", range(probabilities.shape[1])))
+        risks = []
+        for row in probabilities:
+            estimate = 0.0
+            for col, encoded_id in enumerate(class_ids):
+                try:
+                    ordinal = CLASS_NAMES.index(label_for(encoded_id))
+                except ValueError:
+                    ordinal = 0
+                estimate += float(row[col]) * ordinal / 3.0
+            risks.append(estimate)
+        return np.clip(np.asarray(risks), 0.0, 1.0), estimator.__class__.__name__
+    predicted = np.asarray(estimator.predict(matrix), dtype=int).reshape(-1)
+    risks = []
+    for value in predicted:
+        try:
+            risks.append(CLASS_NAMES.index(label_for(value)) / 3.0)
+        except ValueError:
+            risks.append(0.0)
+'''
+if s.count(old)!=1: raise SystemExit(f'prediction mapping block expected once, found {s.count(old)}')
+p.write_text(s.replace(old,new,1))
+
+p=Path('backend/ml/explain.py')
+s=p.read_text()
+old='''            target = np.asarray([float(row["risk"]) for row in rows], dtype=float)
+            importance_result = compute_permutation_importance(estimator, matrix, target, n_repeats=8, random_state=42, scoring="neg_mean_absolute_error")
+            raw = np.maximum(0.0, np.asarray(importance_result.importances_mean, dtype=float))
+            permutation_importances = {name: float(raw[i]) for i, name in enumerate(names)}
+            baseline = np.asarray(estimator.predict(point.reshape(1, -1)), dtype=float).reshape(-1)
+            base_value = float(baseline[0])
+            medians = np.median(matrix, axis=0)
+            signed_values = []
+            # Direction is the local change in predicted risk when a feature is
+            # moved to its training median. Importance provides its global
+            # permutation-derived magnitude/ranking (the method is not SHAP).
+            local_changes = []
+            for i in range(len(names)):
+                modified = point.copy()
+                modified[i] = medians[i]
+                changed = float(np.asarray(estimator.predict(modified.reshape(1, -1))).reshape(-1)[0])
+                local_changes.append(base_value - changed)
+'''
+new='''            is_classifier = "classifier" in estimator.__class__.__name__.lower()
+            class_codes = artifact.get("classifier_class_codes")
+            if is_classifier:
+                encoder_classes = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+                eligible = []
+                target_values = []
+                for index, row in enumerate(rows):
+                    try:
+                        global_code = encoder_classes.index(str(row["label"]))
+                        if isinstance(class_codes, list):
+                            if global_code not in class_codes:
+                                continue
+                            target_values.append(class_codes.index(global_code))
+                        else:
+                            target_values.append(global_code)
+                        eligible.append(index)
+                    except (KeyError, ValueError):
+                        continue
+                if len(eligible) < 2:
+                    raise ValueError("Not enough training-class rows to compute classifier permutation importance.")
+                importance_result = compute_permutation_importance(estimator, matrix[eligible], np.asarray(target_values), n_repeats=8, random_state=42, scoring="accuracy")
+            else:
+                target = np.asarray([float(row["risk"]) for row in rows], dtype=float)
+                importance_result = compute_permutation_importance(estimator, matrix, target, n_repeats=8, random_state=42, scoring="neg_mean_absolute_error")
+            raw = np.maximum(0.0, np.asarray(importance_result.importances_mean, dtype=float))
+            permutation_importances = {name: float(raw[i]) for i, name in enumerate(names)}
+            base_value = float(_risk_estimate(artifact, point.reshape(1, -1))[0][0])
+            medians = np.median(matrix, axis=0)
+            signed_values = []
+            # Direction is the local change in predicted risk when a feature is
+            # moved to its training median. Importance provides its global
+            # permutation-derived magnitude/ranking (the method is not SHAP).
+            local_changes = []
+            for i in range(len(names)):
+                modified = point.copy()
+                modified[i] = medians[i]
+                changed = float(_risk_estimate(artifact, modified.reshape(1, -1))[0][0])
+                local_changes.append(base_value - changed)
+'''
+if s.count(old)!=1: raise SystemExit(f'explanation fallback block expected once, found {s.count(old)}')
+p.write_text(s.replace(old,new,1))
+print('Updated training, inference, and explainability class remapping.')
+PY
+python3 -m py_compile backend/ml/train.py backend/ml/predict.py backend/ml/explain.py
+{
+source /home/ubuntu/.user_env && source '/var/lib/manus/addon-projects/37117942d04268d46424796b680c098eaa69b398d9fa406ba4a7ec10f83b0c21.env' && cd /home/ubuntu/geocool && python3 - <<'PY'
+from pathlib import Path
+p=Path('backend/ml/train.py')
+s=p.read_text()
+old='''    for name, kind, estimator in models:
+        try:
+            if kind == "classifier":
+                y = y_class
+                fit_options = {}
+                class_balance_policy = "class_weight='balanced'" if getattr(estimator, "class_weight", None) == "balanced" else "balanced sample_weight"
+                if getattr(estimator, "class_weight", None) != "balanced":
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    fit_options["sample_weight"] = compute_sample_weight("balanced", y[train_idx])
+                estimator.fit(x[train_idx], y[train_idx], **fit_options)
+                encoded_prediction = estimator.predict(x[test_idx]).astype(int)
+                predicted_class = encoder.inverse_transform(np.clip(encoded_prediction, 0, len(labels) - 1))
+                if hasattr(estimator, "predict_proba"):
+                    probabilities = estimator.predict_proba(x[test_idx])
+                    class_order = list(getattr(estimator, "classes_", []))
+                    predicted_risk = []
+                    for row_probs in probabilities:
+                        estimated = 0.0
+                        for column, encoded_label in enumerate(class_order):
+                            class_name = encoder.inverse_transform([int(encoded_label)])[0]
+                            estimated += float(row_probs[column]) * (labels.index(class_name) / 3.0)
+                        predicted_risk.append(estimated)
+                else:
+                    predicted_risk = [labels.index(value) / 3.0 for value in predicted_class]
+                true_classes = [str(v) for v in y_class_text[test_idx]]
+                result = _metrics(y_risk[test_idx].tolist(), list(predicted_risk), true_classes, list(predicted_class), labels, regression=True)
+                result["primary_task"] = "classification"
+                result["kfold"] = _kfold_report(estimator, x[train_idx], y_class[train_idx], labels, classifier=True, folds=int(folds), seed=int(seed), groups=cv_groups[train_idx] if cv_groups is not None else None)
+'''
+new='''    for name, kind, estimator in models:
+        classifier_class_codes = None
+        try:
+            if kind == "classifier":
+                y = y_class
+                fit_options = {}
+                class_balance_policy = "class_weight='balanced'" if getattr(estimator, "class_weight", None) == "balanced" else "balanced sample_weight"
+                fit_target = y[train_idx]
+                if name == "XGBoostClassifier":
+                    # XGBoost's sklearn wrapper requires labels 0..K-1. A
+                    # spatial holdout can leave a valid but non-contiguous
+                    # subset (for example classes 1,2,3) on the training side.
+                    classifier_class_codes = sorted(int(value) for value in np.unique(fit_target))
+                    if len(classifier_class_codes) < 2:
+                        raise ValueError("XGBoost classifier needs at least two observed classes in the spatial/temporal training split.")
+                    fit_target = np.asarray([classifier_class_codes.index(int(value)) for value in fit_target], dtype=int)
+                if getattr(estimator, "class_weight", None) != "balanced":
+                    from sklearn.utils.class_weight import compute_sample_weight
+                    fit_options["sample_weight"] = compute_sample_weight("balanced", fit_target)
+                estimator.fit(x[train_idx], fit_target, **fit_options)
+                local_prediction = estimator.predict(x[test_idx]).astype(int)
+                if classifier_class_codes is not None:
+                    global_prediction = np.asarray([classifier_class_codes[int(np.clip(value, 0, len(classifier_class_codes) - 1))] for value in local_prediction], dtype=int)
+                    class_code_map = classifier_class_codes
+                else:
+                    global_prediction = np.clip(local_prediction, 0, len(labels) - 1)
+                    class_code_map = list(range(len(encoder.classes_)))
+                predicted_class = encoder.inverse_transform(global_prediction)
+                if hasattr(estimator, "predict_proba"):
+                    probabilities = estimator.predict_proba(x[test_idx])
+                    class_order = list(getattr(estimator, "classes_", []))
+                    predicted_risk = []
+                    for row_probs in probabilities:
+                        estimated = 0.0
+                        for column, encoded_label in enumerate(class_order):
+                            global_code = class_code_map[int(encoded_label)] if int(encoded_label) < len(class_code_map) else int(encoded_label)
+                            class_name = encoder.inverse_transform([global_code])[0]
+                            estimated += float(row_probs[column]) * (labels.index(class_name) / 3.0)
+                        predicted_risk.append(estimated)
+                else:
+                    predicted_risk = [labels.index(value) / 3.0 for value in predicted_class]
+                true_classes = [str(v) for v in y_class_text[test_idx]]
+                result = _metrics(y_risk[test_idx].tolist(), list(predicted_risk), true_classes, list(predicted_class), labels, regression=True)
+                result["primary_task"] = "classification"
+                cv_target = y[train_idx]
+                if classifier_class_codes is not None:
+                    cv_target = np.asarray([classifier_class_codes.index(int(value)) for value in cv_target], dtype=int)
+                result["kfold"] = _kfold_report(estimator, x[train_idx], cv_target, labels, classifier=True, folds=int(folds), seed=int(seed), groups=cv_groups[train_idx] if cv_groups is not None else None)
+'''
+if s.count(old)!=1: raise SystemExit(f'classifier block expected once, found {s.count(old)}')
+s=s.replace(old,new,1)
+old='"class_encoder_classes": [str(value) for value in encoder.classes_], "trained_at":'
+new='"class_encoder_classes": [str(value) for value in encoder.classes_], "classifier_class_codes": classifier_class_codes, "trained_at":'
+if s.count(old)!=1: raise SystemExit(f'artifact mapping insertion expected once, found {s.count(old)}')
+s=s.replace(old,new,1)
+p.write_text(s)
+ap=Path('backend/ml/predict.py')
+s=p.read_text()
+old='''    if hasattr(estimator, "predict_proba"):
+        probabilities = np.asarray(estimator.predict_proba(matrix), dtype=float)
+        encoded_labels = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+        class_ids = list(getattr(estimator, "classes_", range(probabilities.shape[1])))
+        risks = []
+        for row in probabilities:
+            estimate = 0.0
+            for col, encoded_id in enumerate(class_ids):
+                try:
+                    label = str(encoded_labels[int(encoded_id)])
+                    ordinal = CLASS_NAMES.index(label)
+                except (IndexError, ValueError, TypeError):
+                    ordinal = 0
+                estimate += float(row[col]) * ordinal / 3.0
+            risks.append(estimate)
+        return np.clip(np.asarray(risks), 0.0, 1.0), estimator.__class__.__name__
+    predicted = np.asarray(estimator.predict(matrix), dtype=int).reshape(-1)
+    class_names = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+    risks = []
+    for value in predicted:
+        try:
+            label = str(class_names[int(value)])
+            risks.append(CLASS_NAMES.index(label) / 3.0)
+        except (IndexError, ValueError):
+            risks.append(0.0)
+'''
+new='''    class_codes = artifact.get("classifier_class_codes")
+    encoded_labels = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+    def label_for(encoded_id: Any) -> str:
+        local_id = int(encoded_id)
+        global_id = int(class_codes[local_id]) if isinstance(class_codes, list) and 0 <= local_id < len(class_codes) else local_id
+        try:
+            return str(encoded_labels[global_id])
+        except (IndexError, TypeError):
+            return "Low"
+    if hasattr(estimator, "predict_proba"):
+        probabilities = np.asarray(estimator.predict_proba(matrix), dtype=float)
+        class_ids = list(getattr(estimator, "classes_", range(probabilities.shape[1])))
+        risks = []
+        for row in probabilities:
+            estimate = 0.0
+            for col, encoded_id in enumerate(class_ids):
+                try:
+                    ordinal = CLASS_NAMES.index(label_for(encoded_id))
+                except ValueError:
+                    ordinal = 0
+                estimate += float(row[col]) * ordinal / 3.0
+            risks.append(estimate)
+        return np.clip(np.asarray(risks), 0.0, 1.0), estimator.__class__.__name__
+    predicted = np.asarray(estimator.predict(matrix), dtype=int).reshape(-1)
+    risks = []
+    for value in predicted:
+        try:
+            risks.append(CLASS_NAMES.index(label_for(value)) / 3.0)
+        except ValueError:
+            risks.append(0.0)
+'''
+if s.count(old)!=1: raise SystemExit(f'prediction mapping block expected once, found {s.count(old)}')
+p.write_text(s.replace(old,new,1))
+p=Path('backend/ml/explain.py')
+s=p.read_text()
+old='''            target = np.asarray([float(row["risk"]) for row in rows], dtype=float)
+            importance_result = compute_permutation_importance(estimator, matrix, target, n_repeats=8, random_state=42, scoring="neg_mean_absolute_error")
+            raw = np.maximum(0.0, np.asarray(importance_result.importances_mean, dtype=float))
+            permutation_importances = {name: float(raw[i]) for i, name in enumerate(names)}
+            baseline = np.asarray(estimator.predict(point.reshape(1, -1)), dtype=float).reshape(-1)
+            base_value = float(baseline[0])
+            medians = np.median(matrix, axis=0)
+            signed_values = []
+            # Direction is the local change in predicted risk when a feature is
+            # moved to its training median. Importance provides its global
+            # permutation-derived magnitude/ranking (the method is not SHAP).
+            local_changes = []
+            for i in range(len(names)):
+                modified = point.copy()
+                modified[i] = medians[i]
+                changed = float(np.asarray(estimator.predict(modified.reshape(1, -1))).reshape(-1)[0])
+                local_changes.append(base_value - changed)
+'''
+new='''            is_classifier = "classifier" in estimator.__class__.__name__.lower()
+            class_codes = artifact.get("classifier_class_codes")
+            if is_classifier:
+                encoder_classes = artifact.get("class_encoder_classes", list(CLASS_NAMES))
+                eligible = []
+                target_values = []
+                for index, row in enumerate(rows):
+                    try:
+                        global_code = encoder_classes.index(str(row["label"]))
+                        if isinstance(class_codes, list):
+                            if global_code not in class_codes:
+                                continue
+                            target_values.append(class_codes.index(global_code))
+                        else:
+                            target_values.append(global_code)
+                        eligible.append(index)
+                    except (KeyError, ValueError):
+                        continue
+                if len(eligible) < 2:
+                    raise ValueError("Not enough training-class rows to compute classifier permutation importance.")
+                importance_result = compute_permutation_importance(estimator, matrix[eligible], np.asarray(target_values), n_repeats=8, random_state=42, scoring="accuracy")
+            else:
+                target = np.asarray([float(row["risk"]) for row in rows], dtype=float)
+                importance_result = compute_permutation_importance(estimator, matrix, target, n_repeats=8, random_state=42, scoring="neg_mean_absolute_error")
+            raw = np.maximum(0.0, np.asarray(importance_result.importances_mean, dtype=float))
+            permutation_importances = {name: float(raw[i]) for i, name in enumerate(names)}
+            base_value = float(_risk_estimate(artifact, point.reshape(1, -1))[0][0])
+            medians = np.median(matrix, axis=0)
+            signed_values = []
+            # Direction is the local change in predicted risk when a feature is
+            # moved to its training median. Importance provides its global
+            # permutation-derived magnitude/ranking (the method is not SHAP).
+            local_changes = []
+            for i in range(len(names)):
+                modified = point.copy()
+                modified[i] = medians[i]
+                changed = float(_risk_estimate(artifact, modified.reshape(1, -1))[0][0])
+                local_changes.append(base_value - changed)
+'''
+if s.count(old)!=1: raise SystemExit(f'explanation fallback block expected once, found {s.count(old)}')
+p.write_text(s.replace(old,new,1))
+print('Updated training, inference, and explainability class remapping.')
+PY
+python3 -m py_compile backend/ml/train.py backend/ml/predict.py backend/ml/explain.py
+}
+Updated training, inference, and explainability class remapping.
+[32mubuntu@sandbox:~/geocool$ [0m

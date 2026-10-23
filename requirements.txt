@@ -1,0 +1,11 @@
+fastapi>=0.115,<0.117
+uvicorn[standard]>=0.34,<0.36
+numpy>=1.26,<3
+pandas>=2.2,<3
+scikit-learn>=1.5,<2
+xgboost>=2.1,<4
+joblib>=1.4,<2
+paho-mqtt>=2,<3
+psycopg[binary]>=3.2,<4
+shapely>=2,<3
+reportlab>=4,<5

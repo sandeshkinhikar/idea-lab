@@ -1,0 +1,27 @@
+# Terminal Full Output
+# Terminal: geocool
+# Command: python3 - <<'PY'
+import json,urllib.request
+base='http://127.0.0.1:3000'
+def get(path):
+ with urllib.request.urlopen(base+path,timeout=20) as r:return json.load(r)
+health=get('/api/health'); payload=get('/api/wards'); rows=payload['wards']; explain=get('/api/explain/DEMO-06'); edge=get('/api/explain/DEMO-06?edge_id=DEMO-E06-01'); manifest=get('/manus-routes.json')
+print(json.dumps({'health':health.get('status'),'wards':len(rows),'route_count':len(manifest.get('routes',[])),'ward_class_fields':{k:next(w[k] for w in rows if w['ward_id']=='DEMO-06') for k in ('ml_class','ahp_class','risk_class')},'ward_explain_classes':{k:explain.get(k) for k in ('ml_class','ahp_class','risk_class')},'edge_explain':{k:edge.get(k) for k in ('ml_class','ward_ml_class','ahp_class','risk_class','score_basis')}}))
+assert len(rows)==12 and explain.get('ml_class') and explain.get('ahp_class') and edge.get('ml_score') is None and edge.get('ahp_class')
+PY
+# PID: 1153
+# Timestamp: 2026-10-23_17-38-51.711404
+# Original Length: 1436 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/geocool$ [0mpython3 - <<'PY'
+import json,urllib.request
+base='http://127.0.0.1:3000'
+def get(path):
+ with urllib.request.urlopen(base+path,timeout=20) as r:return json.load(r)
+health=get('/api/health'); payload=get('/api/wards'); rows=payload['wards']; explain=get('/api/explain/DEMO-06'); edge=get('/api/explain/DEMO-06?edge_id=DEMO-E06-01'); manifest=get('/manus-routes.json')
+print(json.dumps({'health':health.get('status'),'wards':len(rows),'route_count':len(manifest.get('routes',[])),'ward_class_fields':{k:next(w[k] for w in rows if w['ward_id']=='DEMO-06') for k in ('ml_class','ahp_class','risk_class')},'ward_explain_classes':{k:explain.get(k) for k in ('ml_class','ahp_class','risk_class')},'edge_explain':{k:edge.get(k) for k in ('ml_class','ward_ml_class','ahp_class','risk_class','score_basis')}}))
+assert len(rows)==12 and explain.get('ml_class') and explain.get('ahp_class') and edge.get('ml_score') is None and edge.get('ahp_class')
+PY
+{"health": null, "wards": 12, "route_count": 15, "ward_class_fields": {"ml_class": "High", "ahp_class": "Critical", "risk_class": "High"}, "ward_explain_classes": {"ml_class": "High", "ahp_class": "Critical", "risk_class": "High"}, "edge_explain": {"ml_class": null, "ward_ml_class": "High", "ahp_class": "High", "risk_class": "High", "score_basis": "AHP-derived street reference; no edge-level trained ML score is stored"}}
+[32mubuntu@sandbox:~/geocool$ [0m

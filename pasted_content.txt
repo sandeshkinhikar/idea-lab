@@ -1,0 +1,443 @@
+0. Role and Mission
+You are a senior full‑stack geospatial engineer + ML engineer + UX engineer. Build a working, demo‑ready prototype of the system described in the attached B.Tech report: “GIS‑Based Real‑Time Urban Climate Risk Mapping and Prediction System for Smart City Planning (Nagpur)”.
+
+Hard requirements:
+
+It must use the three source files below as its real data pipeline (wrap them, do not rewrite or discard them).
+
+It must be explainable — every risk score shows a numeric breakdown and a plain‑English “why”.
+
+It must be fully legible — WCAG AA contrast minimum everywhere, no text below 12px.
+
+Every button must do something real. No dead UI. If a feature is out of scope, delete the button rather than leaving it inert.
+
+1. Mandatory Read‑Back Gate (do this first, before writing any code)
+Before producing a single line of code, reply with a short “Source Read‑Back” section that quotes back, verbatim:
+
+(a) The four GeoTIFF filenames.
+
+(b) The exact composite_suitability_score formula and its five weights.
+
+(c) The Nagpur bounding box coordinates.
+
+(d) The S3 base URL in the Java downloader.
+
+(e) The two conflicting radius values (5 km and 20 km) and which file each comes from.
+
+(f) The five feature column names in edge_suitability.csv.
+
+If you cannot find any of these in the attached files, stop and ask — do not guess or invent.
+
+2. Attached Source Files (verbatim — these are the real pipeline)
+FILE 1: 1_download_rasters.py
+python
+import ee
+import geemap
+import os
+
+# 1. Authenticate and Initialize Earth Engine
+project_id = 'dataset-510306'
+
+try:
+    ee.Initialize(project=project_id)
+except Exception as e:
+    ee.Authenticate()
+    ee.Initialize(project=project_id)
+
+os.makedirs("data/raw", exist_ok=True)
+
+# 2. Define Expanded Nagpur Bounding Box (~20km radius from Zero Mile)
+nagpur_roi = ee.Geometry.Rectangle([78.89, 20.96, 79.29, 21.33])
+
+print("Fetching Sentinel-2 Greenery (NDVI)...")
+s2 = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED') \
+    .filterBounds(nagpur_roi) \
+    .filterDate('2023-04-01', '2023-05-31') \
+    .filterMetadata('CLOUDY_PIXEL_PERCENTAGE', 'less_than', 10) \
+    .median()
+ndvi = s2.normalizedDifference(['B8', 'B4']).rename('NDVI')
+geemap.ee_export_image(ndvi, filename="data/raw/nagpur_ndvi.tif", scale=10, region=nagpur_roi)
+
+print("Fetching Landsat 8 Heat Map (LST)...")
+l8 = ee.ImageCollection("LANDSAT/LC08/C02/T1_L2") \
+    .filterBounds(nagpur_roi) \
+    .filterDate('2023-04-01', '2023-05-31') \
+    .median()
+# Convert thermal band to Celsius
+lst = l8.select('ST_B10').multiply(0.00341802).add(149.0).subtract(273.15).rename('LST')
+geemap.ee_export_image(lst, filename="data/raw/nagpur_lst.tif", scale=30, region=nagpur_roi)
+
+print("Fetching SRTM Elevation (Slope)...")
+srtm = ee.Image('USGS/SRTMGL1_003').clip(nagpur_roi)
+slope = ee.Terrain.slope(srtm).rename('Slope')
+geemap.ee_export_image(slope, filename="data/raw/nagpur_slope.tif", scale=30, region=nagpur_roi)
+
+print("Fetching WorldPop Population Density...")
+pop = ee.ImageCollection("WorldPop/GP/100m/pop") \
+    .filterBounds(nagpur_roi) \
+    .filterDate('2020-01-01', '2021-01-01') \
+    .mean().rename('Population')
+geemap.ee_export_image(pop, filename="data/raw/nagpur_pop.tif", scale=100, region=nagpur_roi)
+
+print("All satellite rasters downloaded successfully to data/raw/")
+FILE 2: 2_build_real_dataset.py
+python
+import os
+import osmnx as ox
+import geopandas as gpd
+import pandas as pd
+from rasterstats import zonal_stats
+import warnings
+from sklearn.preprocessing import MinMaxScaler
+
+warnings.filterwarnings('ignore')
+
+print("1. Downloading Nagpur Road Network (Vector data)...")
+# CHANGED: dist=5000 is now dist=20000 to include outer highways and ring roads
+G = ox.graph_from_point((21.1458, 79.0882), dist=20000, network_type='all')
+nodes, edges = ox.graph_to_gdfs(G)
+edges = edges.reset_index()
+
+# Convert to UTM Zone 44N (meters) to draw the 10m buffer
+edges_proj = edges.to_crs(epsg=32644)
+buffered_geoms = edges_proj.geometry.buffer(10)
+
+# THE FIX: Convert the buffered polygons BACK to EPSG:4326 (degrees) 
+# so they match the satellite images downloaded from Earth Engine.
+edges_buffered_gdf = gpd.GeoDataFrame(geometry=buffered_geoms, crs=32644)
+edges_ready_for_raster = edges_buffered_gdf.to_crs(epsg=4326)
+
+print("2. Extracting Real Satellite Data for every street (Raster to Vector)...")
+def extract_raster_stats(raster_path):
+    if not os.path.exists(raster_path):
+        print(f"  [!] Missing {raster_path}. Did the download script finish?")
+        return [0] * len(edges)
+    
+    # We now use 'edges_ready_for_raster' which is in degrees
+    stats = zonal_stats(edges_ready_for_raster, raster_path, stats="mean", all_touched=True)
+    return [s['mean'] if s['mean'] is not None else 0 for s in stats]
+
+edges['lst'] = extract_raster_stats("data/raw/nagpur_lst.tif")
+edges['ndvi'] = extract_raster_stats("data/raw/nagpur_ndvi.tif")
+edges['slope'] = extract_raster_stats("data/raw/nagpur_slope.tif")
+edges['population'] = extract_raster_stats("data/raw/nagpur_pop.tif")
+
+edges['pm'] = 65.0 
+
+print("3. Calculating AHP Suitability Scores...")
+df = pd.DataFrame(edges[['osmid', 'lst', 'ndvi', 'pm', 'population', 'slope']])
+df = df.rename(columns={'osmid': 'edge_id'})
+df['edge_id'] = df['edge_id'].astype(str)
+
+features = ["lst", "ndvi", "pm", "population", "slope"]
+scaler = MinMaxScaler()
+df_norm = pd.DataFrame(scaler.fit_transform(df[features]), columns=features)
+
+df["composite_suitability_score"] = (
+    (1 - df_norm["lst"]) * 0.35 +
+    df_norm["ndvi"] * 0.25 +
+    (1 - df_norm["pm"]) * 0.20 +
+    (1 - df_norm["population"]) * 0.10 +
+    (1 - df_norm["slope"]) * 0.10
+)
+
+os.makedirs("data/processed", exist_ok=True)
+df.to_csv("data/processed/edge_suitability.csv", index=False)
+print("Success! Real dataset saved to data/processed/edge_suitability.csv")
+FILE 3: GisImageDownloader.java
+java
+import java.io.InputStream;
+import java.net.URL;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+
+public class GisImageDownloader {
+    
+    // The target directory your ML scripts are expecting
+    private static final String DATA_DIR = "data/raw/";
+    
+    // The exact GIS GeoTIFF rasters required for the GeoCool project
+    private static final String[] RASTER_FILES = {
+        "nagpur_lst.tif",
+        "nagpur_ndvi.tif",
+        "nagpur_slope.tif",
+        "nagpur_pop.tif"
+    };
+
+    public static void main(String[] args) {
+        System.out.println("Initializing GIS Raster Download Pipeline...");
+        
+        // In a live production environment, this base URL points to an authenticated 
+        // Google Earth Engine REST endpoint or a cloud bucket hosting the exported images.
+        String cloudStorageUrl = "https://geocool-satellite-data.s3.amazonaws.com/nagpur/5km_radius/";
+
+        try {
+            Path dirPath = Paths.get(DATA_DIR);
+            if (!Files.exists(dirPath)) {
+                Files.createDirectories(dirPath);
+                System.out.println("Created missing directory: " + DATA_DIR);
+            }
+
+            for (String fileName : RASTER_FILES) {
+                System.out.println("Fetching -> " + fileName);
+                URL url = new URL(cloudStorageUrl + fileName);
+                
+                try (InputStream in = url.openStream()) {
+                    Path destination = Paths.get(DATA_DIR + fileName);
+                    // This overwrites any partial or corrupted files from a previous run
+                    Files.copy(in, destination, StandardCopyOption.REPLACE_EXISTING);
+                    System.out.println("Successfully saved to: " + destination.toAbsolutePath());
+                } catch (Exception e) {
+                    System.err.println("Error downloading " + fileName + ": " + e.getMessage());
+                }
+            }
+            
+            System.out.println("All GIS image assets provisioned.");
+            
+        } catch (Exception e) {
+            System.err.println("Critical pipeline failure: " + e.getMessage());
+        }
+    }
+}
+3. Source‑of‑Truth Rules and Known Issues You Must Reconcile
+These are real defects/gaps in the provided code. Handle each explicitly and document the fix in RECONCILIATION.md.
+
+#	Issue	Required handling
+1	Scale mismatch — Python uses a ~20 km bbox (ROI [78.89, 20.96, 79.29, 21.33], dist=20000), Java uses /nagpur/5km_radius/.	Treat the Python 20 km ROI as the single source of truth. Keep Java as a clearly labeled “fallback / legacy path” button with a warning badge.
+2	No geometry in the CSV — the script does df = pd.DataFrame(edges[[...]]), dropping the road geometry.	Patch (additively, in a wrapper — do not break the original) so the output also contains geometry_wkt, start_lat/lon, end_lat/lon. Without this the map cannot render streets.
+3	pm is hardcoded 65.0 — zero variance, so it contributes a constant 0.20 and discriminates nothing.	Add a visible “PM is a constant placeholder (65.0)” badge in the UI and in the explainability panel. Do not silently present it as a real driver.
+4	No ML model exists in the scripts. They only compute a weighted AHP score.	Build the ML layer yourself (Section 7). Keep the AHP score as a transparent reference score shown alongside the ML score.
+5	Direction inversion — composite_suitability_score is a suitability score (higher = better/cooler). The report’s HRI is a risk score (higher = worse).	Derive risk as the inverse mapping: risk_raw = 1 − composite_suitability_score, then classify. State this conversion in the UI and in RECONCILIATION.md.
+6	Ward vs. street granularity — report is ward‑level; scripts are road‑edge‑level.	Keep edge‑level as the base layer, then spatially aggregate edges → wards (mean, max, p90) via PostGIS ST_Intersects to produce the ward HRI and class. Provide a Ward view / Street view toggle.
+7	geemap.ee_export_image has a ~50 MB / 32 MB request limit. A 20 km ROI at 10 m NDVI scale can exceed it.	Wrap the export with geemap.ee_export_image and a chunked fallback (geemap.ee_export_image_to_drive or tiling loop). Surface the failure mode in the UI.
+8	Earth Engine auth is interactive.	Run the pipeline as a subprocess with a pre‑authenticated service account or cached credentials; stream stdout/stderr live into the UI console. If auth fails, show a clear actionable error, not a stack trace.
+9	Report Chapter 5 numbers are explicitly “illustrative”.	The prototype must generate real measured metrics via /api/metrics and label any synthetic/demo data with a visible “DEMO DATA” badge. Never display sample numbers as real.
+10	IoT/ESP32/MQTT is described in the report but absent from all three files.	Implement a sensor simulator (MQTT topic nagpur/wards/{ward_id}/sensors) plus a real MQTT subscriber path. Label it “simulated” until a physical node is connected.
+4. Tech Stack (must match the report)
+Backend: Python FastAPI + Uvicorn. Async subprocess runner for the three scripts with live log streaming via WebSocket or Server‑Sent Events.
+
+Database: PostgreSQL + PostGIS. Provide docker-compose.yml and a seed_demo.py so the app runs in demo mode before real data exists.
+
+ML: scikit-learn RandomForestClassifier/Regressor + XGBoost + LinearRegression baseline. Persist with joblib in models/. Track runs in a model_runs table.
+
+Explainability: shap.TreeExplainer when available; otherwise a documented permutation‑importance fallback. Always show the AHP weights as the transparent second opinion.
+
+Frontend: Leaflet.js + Chart.js, plain HTML/CSS/JS (no build step). Light basemap: CartoDB Positron. Includes a Dark mode toggle.
+
+Alerts: in‑app alert panel + alerts table. SMS/email stubs are allowed but must be visibly labeled “demo — no gateway configured”.
+
+Sensors: paho-mqtt simulator publisher + subscriber.
+
+5. How to Wrap the Three Scripts (do not modify their core logic)
+Create backend/pipeline_runner.py exposing four callable jobs:
+
+Job	Runs	Preconditions	Output
+run_raster_download	scripts/1_download_rasters.py	EE credentials	4 GeoTIFFs in data/raw/
+run_java_fallback	javac + java GisImageDownloader	JDK 17+, reachable URL	4 GeoTIFFs in data/raw/ (fallback only)
+run_dataset_build	scripts/2_build_real_dataset.py (patched wrapper)	rasters present	data/processed/edge_suitability.csv (+ geometry)
+run_train_and_predict	your new backend/ml/train.py	CSV present	models + risk_scores rows
+Rules:
+
+Each job streams stdout/stderr line‑by‑line to the UI console with timestamps.
+
+Each job has queued / running / success / failed state and a job_id.
+
+Each job is idempotent and logs to a pipeline_runs table.
+
+Each job surfaces a preflight check (file exists? raster readable? row count?) before running.
+
+Never hard‑fail silently — every error appears as a toast and in the console.
+
+6. Database Schema (minimum)
+text
+wards(ward_id PK, name, geom GEOMETRY(POLYGON,4326))
+edges(edge_id PK, geom GEOMETRY(LINESTRING,4326), ward_id FK,
+      lst FLOAT, ndvi FLOAT, pm FLOAT, population FLOAT, slope FLOAT,
+      ahp_suitability FLOAT, ahp_risk FLOAT)
+risk_scores(id PK, ward_id FK, edge_id NULL, ts TIMESTAMPTZ,
+      ml_score FLOAT, ml_class TEXT, ahp_score FLOAT, ahp_class TEXT,
+      contributions JSONB)
+model_runs(id PK, algo TEXT, trained_at TIMESTAMPTZ, params JSONB,
+      accuracy FLOAT, precision FLOAT, recall FLOAT, f1 FLOAT,
+      rmse FLOAT, mae FLOAT, r2 FLOAT, confusion_matrix JSONB)
+alerts(id PK, ward_id FK, ts TIMESTAMPTZ, severity TEXT,
+      cause TEXT, precaution TEXT, status TEXT)  -- open/ack/resolved
+sensor_readings(id PK, ward_id FK, device_id TEXT, ts TIMESTAMPTZ,
+      temperature FLOAT, humidity FLOAT, quality TEXT)
+pipeline_runs(id PK, job TEXT, started_at, finished_at, status, log TEXT)
+7. ML and Explainability Specification
+Target: risk class {Low, Moderate, High, Critical} from ward‑aggregated features (lst, ndvi, population, slope, plus the constant pm — flag it).
+Labels: derived from the AHP‑inverted risk score using configurable thresholds, documented as weak supervision (state this limitation in the UI).
+Models: Baseline LinearRegression → RandomForest → XGBoost.
+Validation: temporal or spatial hold‑out plus k‑fold; report per‑class precision/recall, full confusion matrix, and RMSE/MAE/R² for the regressor.
+Class balance: if classes are imbalanced, apply class_weight='balanced' or SMOTE and say so.
+
+Explainability panel (mandatory on every ward/street popup):
+
+Top‑3 feature contributions with sign and magnitude (bar chart).
+
+One‑sentence plain English, e.g. “High land‑surface temperature (+0.21) and low vegetation (+0.18) pushed this ward into High risk; gentle slope (−0.03) slightly lowered it.”
+
+The AHP weights displayed side‑by‑side as the transparent reference.
+
+A “Constant input” warning chip whenever pm is a driver.
+
+A “Weak‑label” chip explaining labels derive from the AHP formula, not field ground truth.
+
+8. Color Theme — WCAG AA Minimum (use exactly)
+Token	Hex	Use	Contrast on white
+--bg	#F8FAFC	Page background	—
+--surface	#FFFFFF	Cards	—
+--text-primary	#0F172A	Headings/body	16.9:1
+--text-secondary	#334155	Labels	10.3:1
+--nav-bg	#1E3A8A	Top bar (white text)	12.3:1
+--accent	#2563EB	Primary buttons (white text)	5.1:1
+--accent-hover	#1D4ED8	Hover	6.3:1
+--border	#CBD5E1	Card borders	—
+Risk palette — never white text on yellow/orange; use the dark tone on the light fill:
+
+Class	Fill	Text/icon	Contrast on fill
+Low	#DCFCE7	#15803D	5.0:1
+Moderate	#FEF9C3	#A16207	5.4:1
+High	#FFEDD5	#C2410C	5.1:1
+Critical	#FEE2E2	#991B1B	6.4:1
+Map polygons: fill above, stroke #0F172A 1px, opacity 0.75, over a light basemap.
+
+Typography: system stack; body ≥14px, dashboard labels 16px, legend ≥12px. Nothing under 12px.
+
+Dark mode: swap --bg → #0F172A and --text-primary → #F8FAFC.
+
+Ship a dev‑only “Run contrast audit” button that scans the DOM and console‑logs any pair below AA.
+
+9. Pages and Features (every element must work)
+A. Overview Dashboard
+Summary cards: Wards Monitored · Critical Wards · Active Alerts · Last Refresh · Model F1. Each card is clickable and filters the map + table.
+
+Map with layer control: Risk Class · LST · NDVI · Slope · Population · AHP Suitability · Street‑level view.
+
+Search (ward name or edge id) → zoom + open panel.
+
+Buttons: Refresh, Download Rasters (GEE), Fallback Download (Java), Rebuild Dataset, Train Model, Predict, Export CSV, Export PDF.
+
+B. Ward / Street Detail Panel
+Ward name, risk class, ML score, AHP reference score, trend sparkline.
+
+“Why this risk?” → contribution bar chart + plain‑English sentence + cause/precaution text.
+
+Acknowledge Alert / Resolve Alert (writes DB, updates counters).
+
+Zoom to ward, View streets, View sensor history.
+
+C. Alerts Page
+Filterable table (ward, class, time, status).
+
+Acknowledge, Resolve, Export, Simulate threshold breach (writes a synthetic sensor reading and drives the full alert pipeline end‑to‑end).
+
+Threshold editor sliders → Save persists and reclassifies.
+
+D. Model & Metrics Page
+Accuracy / precision / recall / F1 / RMSE / MAE / R² for Baseline, RF, XGBoost.
+
+Confusion matrix heatmap (contrast‑safe).
+
+Run new experiment form (split ratio, folds, seed) → new model_runs row.
+
+Compare runs table.
+
+Visible “Labels are weakly supervised from the AHP index” disclaimer.
+
+E. Data & Pipeline Page
+Table of the four GeoTIFFs: path, size, last modified, producing script.
+
+edge_suitability.csv preview (first 50 rows) + row count + column list.
+
+Buttons for each pipeline job with a live streaming console.
+
+Health panel: DB connection, rasters present, model files present, API latency, EE auth status.
+
+F. Settings
+Light/Dark toggle, threshold editor, refresh interval, Demo Mode switch, contrast audit button.
+
+G. “How This Works” page
+Walk through the report’s 8‑stage methodology and name which script/endpoint implements each stage.
+
+Glossary tooltips for LST, NDVI, HRI, AHP, RMSE, F1, weak supervision.
+
+10. Button → Endpoint → Effect Matrix (produce this as BUTTONS.md)
+Every button must satisfy: visible loading state, success state, error state, keyboard focus ring, and disabled styling that still passes contrast.
+
+Button	Endpoint	Effect
+Refresh	POST /api/refresh	Re‑read CSV, recompute scores, update map
+Download Rasters (GEE)	POST /api/pipeline/raster	Runs File 1, streams logs
+Fallback Download (Java)	POST /api/pipeline/java	Runs File 3, labeled fallback
+Rebuild Dataset	POST /api/pipeline/dataset	Runs File 2 (patched), streams logs
+Train Model	POST /api/model/train	Trains RF/XGB/baseline, writes model_runs
+Predict	POST /api/model/predict	Writes risk_scores, updates map
+Explain	GET /api/explain/{ward_id}	Returns SHAP + AHP breakdown
+Acknowledge Alert	PATCH /api/alerts/{id}	Sets status, updates counters
+Resolve Alert	PATCH /api/alerts/{id}	Sets resolved
+Simulate Breach	POST /api/alerts/simulate	Injects sensor reading, fires pipeline
+Save Thresholds	PUT /api/settings/thresholds	Persists + reclassifies
+Export CSV / PDF	GET /api/export/{fmt}	Streams a real file
+Contrast Audit	client‑side	Scans DOM, logs failures
+11. Repository Structure
+text
+geocool-prototype/
+  backend/
+    app.py
+    routes/{pipeline,wards,alerts,model,metrics,settings}.py
+    ml/{train.py,explain.py,predict.py}
+    db.py
+    pipeline_runner.py
+    mqtt_simulator.py
+  frontend/
+    index.html dashboard.html ward.html alerts.html metrics.html data.html settings.html how.html
+    assets/css/theme.css
+    assets/js/{map.js,charts.js,api.js,ui.js,contrast-audit.js}
+  scripts/
+    1_download_rasters.py
+    2_build_real_dataset.py
+    build_dataset_patched.py      # additive patch: keeps geometry
+    GisImageDownloader.java
+  data/raw/  data/processed/  models/
+  docker-compose.yml
+  seed_demo.py
+  BUTTONS.md  README.md  RECONCILIATION.md  LIMITATIONS.md  .env.example
+12. Deliverables
+A running app (uvicorn backend.app:app + static frontend) that works out of the box in Demo Mode after python seed_demo.py.
+
+All three original scripts wrapped, callable, and unmodified in scripts/ (patches live in build_dataset_patched.py).
+
+Screenshots of every page in Light and Dark mode.
+
+RECONCILIATION.md — each of the 10 issues from Section 3, how you resolved it, and where.
+
+BUTTONS.md — the Section 10 matrix, filled in with real endpoints.
+
+LIMITATIONS.md — what is stubbed (SMS/email gateway, physical IoT node, real NMC ward shapefile) and why, mirroring the honesty of report Section 5.4.
+
+A contrast-audit result showing zero AA failures.
+
+13. Non‑Negotiables (acceptance criteria)
+No hallucinated columns or filenames. Use only: edge_id, lst, ndvi, pm, population, slope, composite_suitability_score (+ the geometry fields you add in the patch).
+
+No placeholder results presented as real. Synthetic data carries a visible DEMO DATA badge.
+
+No text below WCAG AA contrast. Run the audit before declaring done.
+
+No dead buttons. Remove rather than leave inert.
+
+No score without an explanation. A number without a reason is a failure.
+
+The report’s Chapter 5 values must be replaced by real /api/metrics output — state this explicitly in the UI footer and in LIMITATIONS.md.
+
+14. Your First Response Must Contain
+The Source Read‑Back (Section 1) quoting all six items.
+
+A short plan (max 20 bullets) mapping each requirement to a file you will create.
+
+The RECONCILIATION.md draft covering all 10 issues.
+
+Only then: begin implementation, starting with theme.css, seed_demo.py, app.py, and the dashboard shell.

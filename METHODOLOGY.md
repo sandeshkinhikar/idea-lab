@@ -1,0 +1,10 @@
+# Eight-stage methodology mapping
+
+1. **Define study footprint:** the supplied Earth Engine script uses the Nagpur rectangle `[78.89, 20.96, 79.29, 21.33]`; `scripts/1_download_rasters.py` and `POST /api/pipeline/raster` implement access to raster acquisition.
+2. **Acquire geospatial layers:** Sentinel-2 NDVI, Landsat 8 LST, SRTM slope and WorldPop are requested in the original raster downloader. The data page reports actual file existence/size and does not imply a download where none exists.
+3. **Acquire street network:** `scripts/2_build_real_dataset.py` downloads road edges with OSMnx around `(21.1458, 79.0882)` with `dist=20000`.
+4. **Extract raster values per street:** the source builder buffers streets and applies rasterstats zonal mean extraction. `scripts/build_dataset_patched.py` adds geometry fields without changing the source builder's feature extraction logic.
+5. **Compute transparent AHP suitability:** normalize `lst`, `ndvi`, `pm`, `population`, `slope` with MinMaxScaler and use the exact source weights `0.35,0.25,0.20,0.10,0.10`; the dataset and explainability panels show the component values and constant-PM caveat.
+6. **Convert to HRI and aggregate:** derive `risk_raw = 1 - composite_suitability_score`, classify using configurable weak-label thresholds, then aggregate street edges into wards (mean, maximum, p90) with PostGIS `ST_Intersects` when PostGIS is available.
+7. **Train/validate ML and explain scores:** `backend/ml/train.py` provides LinearRegression, Random Forest, XGBoost classifier/regressor, holdout/k-fold metrics and joblib models; `/api/model/train`, `/api/model/predict`, `/api/metrics` and `/api/explain/{ward_id}` power the UI. Use SHAP where available or the documented permutation-importance fallback. AHP-derived labels are weak supervision.
+8. **Monitor and communicate risk:** in-app alerts and the `nagpur/wards/{ward_id}/sensors` MQTT simulation path power the alert views; physical sensors and SMS/email delivery are not claimed. `/api/alerts/simulate` is a synthetic end-to-end test. Dashboard pages present risk, causes, precautions, provenance, and limitations.

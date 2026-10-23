@@ -1,0 +1,70 @@
+# Terminal Full Output
+# Terminal: geocool-visual
+# Command: python3 - <<'PY'
+from playwright.sync_api import sync_playwright
+js=r'''() => {
+ const rgb=v=>{const m=String(v||'').match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(',').map(x=>parseFloat(x));return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};};
+ const lum=v=>{const c=rgb(v);if(!c)return null;const f=x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;};return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b);};
+ const issues=[];let checked=0;
+ for(const el of document.querySelectorAll('body *')){const s=getComputedStyle(el);if(s.display==='none'||s.visibility==='hidden'||!el.textContent.trim())continue;const fg=lum(s.color);let bg=s.backgroundColor,n=el;while((!rgb(bg)||rgb(bg).a===0)&&n&&n!==document.documentElement){n=n.parentElement;if(n)bg=getComputedStyle(n).backgroundColor;}const back=lum(bg);if(fg===null||back===null)continue;const ratio=(Math.max(fg,back)+.05)/(Math.min(fg,back)+.05),size=parseFloat(s.fontSize)||16,threshold=(size>=24||(size>=18.67&&Number(s.fontWeight)>=700))?3:4.5;checked++;if(ratio<threshold)issues.push({type:'text',ratio:+ratio.toFixed(2),threshold,tag:el.tagName,cls:String(el.className?.baseVal||el.className||''),text:el.textContent.trim().slice(0,100),fg:s.color,bg});}
+ const root=getComputedStyle(document.documentElement),nav=document.querySelector('.topbar'),card=document.querySelector('.card'),popup=document.querySelector('.map-risk-popup');const contrast=(a,b)=>{const x=lum(a),y=lum(b);return x===null||y===null?null:(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+ const checks=[['--focus-ring',root.getPropertyValue('--focus-ring'),root.getPropertyValue('--bg')],['--focus-ring',root.getPropertyValue('--focus-ring'),card?getComputedStyle(card).backgroundColor:root.getPropertyValue('--surface')],['popup focus','#2563EB',popup?getComputedStyle(popup).backgroundColor:'#FFFFFF'],['navigation focus',root.getPropertyValue('--focus-ring-on-nav'),nav?getComputedStyle(nav).backgroundColor:root.getPropertyValue('--nav-bg')]];for(const [name,ring,bg] of checks){const r=contrast(ring,bg);if(r!==null&&r<3)issues.push({type:'focus',name,ratio:+r.toFixed(2),threshold:3,ring,bg});}
+ return {checked,issues};
+}'''
+with sync_playwright() as p:
+ b=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox','--disable-dev-shm-usage'])
+ page=b.new_page(viewport={'width':1600,'height':1050})
+ for theme in ('light','dark'):
+  page.goto(f'http://127.0.0.1:3000/?theme={theme}',wait_until='domcontentloaded');page.wait_for_function("document.querySelector('#page-content')?.getAttribute('aria-busy') !== 'true'");page.wait_for_function("document.querySelectorAll('#risk-map path.leaflet-interactive').length>0");page.locator('#risk-map path.leaflet-interactive').first.click(force=True);page.wait_for_function("document.querySelector('.leaflet-popup-content [data-popup-explanation]')?.dataset.loaded==='true'");print(theme,page.evaluate(js))
+ b.close()
+PY
+# PID: 1153
+# Timestamp: 2026-10-23_17-41-04.332259
+# Original Length: 7269 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/geocool$ [0mpython3 - <<'PY'
+from playwright.sync_api import sync_playwright
+js=r'''() => {
+ const rgb=v=>{const m=String(v||'').match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(',').map(x=>parseFloat(x));return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};};
+ const lum=v=>{const c=rgb(v);if(!c)return null;const f=x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;};return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b);};
+ const issues=[];let checked=0;
+ for(const el of document.querySelectorAll('body *')){const s=getComputedStyle(el);if(s.display==='none'||s.visibility==='hidden'||!el.textContent.trim())continue;const fg=lum(s.color);let bg=s.backgroundColor,n=el;while((!rgb(bg)||rgb(bg).a===0)&&n&&n!==document.documentElement){n=n.parentElement;if(n)bg=getComputedStyle(n).backgroundColor;}const back=lum(bg);if(fg===null||back===null)continue;const ratio=(Math.max(fg,back)+.05)/(Math.min(fg,back)+.05),size=parseFloat(s.fontSize)||16,threshold=(size>=24||(size>=18.67&&Number(s.fontWeight)>=700))?3:4.5;checked++;if(ratio<threshold)issues.push({type:'text',ratio:+ratio.toFixed(2),threshold,tag:el.tagName,cls:String(el.className?.baseVal||el.className||''),text:el.textContent.trim().slice(0,100),fg:s.color,bg});}
+ const root=getComputedStyle(document.documentElement),nav=document.querySelector('.topbar'),card=document.querySelector('.card'),popup=document.querySelector('.map-risk-popup');const contrast=(a,b)=>{const x=lum(a),y=lum(b);return x===null||y===null?null:(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+ const checks=[['--focus-ring',root.getPropertyValue('--focus-ring'),root.getPropertyValue('--bg')],['--focus-ring',root.getPropertyValue('--focus-ring'),card?getComputedStyle(card).backgroundColor:root.getPropertyValue('--surface')],['popup focus','#2563EB',popup?getComputedStyle(popup).backgroundColor:'#FFFFFF'],['navigation focus',root.getPropertyValue('--focus-ring-on-nav'),nav?getComputedStyle(nav).backgroundColor:root.getPropertyValue('--nav-bg')]];for(const [name,ring,bg] of checks){const r=contrast(ring,bg);if(r!==null&&r<3)issues.push({type:'focus',name,ratio:+r.toFixed(2),threshold:3,ring,bg});}
+ return {checked,issues};
+}'''
+with sync_playwright() as p:
+ b=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox','--disable-dev-shm-usage'])
+ page=b.new_page(viewport={'width':1600,'height':1050})
+ for theme in ('light','dark'):
+  page.goto(f'http://127.0.0.1:3000/?theme={theme}',wait_until='domcontentloaded');page.wait_for_function("document.querySelector('#page-content')?.getAttribute('aria-busy') !== 'true'");page.wait_for_function("document.querySelectorAll('#risk-map path.leaflet-interactive').length>0");page.locator('#risk-map path.leaflet-interactive').first.click(force=True);page.wait_for_function("document.querySelector('.leaflet-popup-content [data-popup-explanation]')?.dataset.loaded==='true'");print(theme,page.evaluate(js))
+ b.close()
+PY
+{
+source /home/ubuntu/.user_env && source '/var/lib/manus/addon-projects/37117942d04268d46424796b680c098eaa69b398d9fa406ba4a7ec10f83b0c21.env' && cd /home/ubuntu/geocool && python3 - <<'PY'
+from playwright.sync_api import sync_playwright
+js=r'''() => {
+ const rgb=v=>{const m=String(v||'').match(/rgba?\(([^)]+)\)/);if(!m)return null;const p=m[1].split(',').map(x=>parseFloat(x));return {r:p[0],g:p[1],b:p[2],a:p.length>3?p[3]:1};};
+ const lum=v=>{const c=rgb(v);if(!c)return null;const f=x=>{x/=255;return x<=.04045?x/12.92:((x+.055)/1.055)**2.4;};return .2126*f(c.r)+.7152*f(c.g)+.0722*f(c.b);};
+ const issues=[];let checked=0;
+ for(const el of document.querySelectorAll('body *')){const s=getComputedStyle(el);if(s.display==='none'||s.visibility==='hidden'||!el.textContent.trim())continue;const fg=lum(s.color);let bg=s.backgroundColor,n=el;while((!rgb(bg)||rgb(bg).a===0)&&n&&n!==document.documentElement){n=n.parentElement;if(n)bg=getComputedStyle(n).backgroundColor;}const back=lum(bg);if(fg===null||back===null)continue;const ratio=(Math.max(fg,back)+.05)/(Math.min(fg,back)+.05),size=parseFloat(s.fontSize)||16,threshold=
+(size>=24||(size>=18.67&&Number(s.fontWeight)>=700))?3:4.5;checked++;if(ratio<threshold)issues.push({type:'text',ratio:+ratio.toFixed(2),threshold,tag:el.tagName,cls:String(el.className?.baseVal||el.className||''),text:el.textContent.trim().slice(0,100),fg:s.color,bg});}
+ const root=getComputedStyle(document.documentElement),nav=document.querySelector('.topbar'),card=document.querySelector('.card'),popup=document.querySelector('.map-risk-popup');const contrast=(a,b)=>{const x=lum(a),y=lum(b);return x===null||y===null?null:(Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+ const checks=[['--focus-ring',root.getPropertyValue('--focus-ring'),root.getPropertyValue('--bg')],['--focus-ring',root.getPropertyValue('--focus-ring'),card?getComputedStyle(card).backgroundColor:root.getPropertyValue('--surface')],['popup focus','#2563EB',popup?getComputedStyle(popup).backgroundColor:'#FFFFFF'],['navigation focus',root.getPropertyValue('--focus-ring-on-nav'),nav?getComputedStyle(nav).backgroundColor:root.getPropertyValue('--nav-bg')]];for(const [name,ring,bg] of checks){const
+ r=contrast(ring,bg);if(r!==null&&r<3)issues.push({type:'focus',name,ratio:+r.toFixed(2),threshold:3,ring,bg});}
+ return {checked,issues};
+}'''
+with sync_playwright() as p:
+ b=p.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox','--disable-dev-shm-usage'])
+ page=b.new_page(viewport={'width':1600,'height':1050})
+ for theme in ('light','dark'):
+  page.goto(f'http://127.0.0.1:3000/?theme={theme}',wait_until='domcontentloaded');page.wait_for_function("document.querySelector('#page-content')?.getAttribute('aria-busy') !== 'true'");page.wait_for_function("document.querySelectorAll('#risk-map path.leaflet-interactive').length>0");page.locator('#risk-map path.leaflet-interactive').first.click(force=True);page.wait_for_function("document.querySelector('.leaflet-popup-content [data-popup-explanation]')?.dataset.loaded==='true'");print(theme,pa
+ge.evaluate(js))
+ b.close()
+PY
+}
+light {'checked': 431, 'issues': [{'type': 'text', 'ratio': 3.39, 'threshold': 4.5, 'tag': 'A', 'cls': 'leaflet-popup-close-button', 'text': '×', 'fg': 'rgb(117, 117, 117)', 'bg': 'rgb(221, 221, 221)'}, {'type': 'text', 'ratio': 3.39, 'threshold': 4.5, 'tag': 'SPAN', 'cls': '', 'text': '×', 'fg': 'rgb(117, 117, 117)', 'bg': 'rgb(221, 221, 221)'}]}
+dark {'checked': 431, 'issues': [{'type': 'text', 'ratio': 1.48, 'threshold': 4.5, 'tag': 'P', 'cls': 'form-help', 'text': 'Higher AHP suitability is better/cooler; risk is inverted.', 'fg': 'rgb(203, 213, 225)', 'bg': 'rgb(255, 255, 255)'}, {'type': 'text', 'ratio': 1.48, 'threshold': 4.5, 'tag': 'P', 'cls': 'form-help', 'text': 'Labels are derived from AHP-inverted risk thresholds, not field ground truth.', 'fg': 'rgb(203, 213, 225)', 'bg': 'rgb(255, 255, 255)'}, {'type': 'text', 'ratio': 3.39
+, 'threshold': 4.5, 'tag': 'A', 'cls': 'leaflet-popup-close-button', 'text': '×', 'fg': 'rgb(117, 117, 117)', 'bg': 'rgb(221, 221, 221)'}, {'type': 'text', 'ratio': 3.39, 'threshold': 4.5, 'tag': 'SPAN', 'cls': '', 'text': '×', 'fg': 'rgb(117, 117, 117)', 'bg': 'rgb(221, 221, 221)'}]}
+[32mubuntu@sandbox:~/geocool$ [0m

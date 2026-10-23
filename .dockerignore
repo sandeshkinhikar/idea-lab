@@ -1,0 +1,14 @@
+.git
+__pycache__
+*.py[cod]
+.env
+.env.*
+!.env.example
+.venv
+venv
+data/raw/*.tif
+data/processed/edge_suitability.csv
+data/demo_data.json
+data/geocool_demo.sqlite
+models/*.joblib
+models/*.pkl

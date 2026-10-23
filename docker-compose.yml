@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    environment:
+      POSTGRES_DB: geocool
+      POSTGRES_USER: geocool
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-geocool_demo}
+    ports:
+      - "5432:5432"
+    volumes:
+      - geocool_postgis:/var/lib/postgresql/data
+      - ./backend/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U geocool -d geocool"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql://geocool:${POSTGRES_PASSWORD:-geocool_demo}@db:5432/geocool
+      DEMO_MODE: ${DEMO_MODE:-true}
+      EE_PROJECT_ID: ${EE_PROJECT_ID:-dataset-510306}
+      MQTT_BROKER: ${MQTT_BROKER:-}
+      CARTO_API_KEY: ${CARTO_API_KEY:-}
+      PORT: 3000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./models:/app/models
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  geocool_postgis:

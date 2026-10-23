@@ -1,0 +1,72 @@
+# Terminal Full Output
+# Terminal: geocool
+# Command: python3 - <<'PY'
+import json,time,urllib.request
+base='http://127.0.0.1:3000'
+for _ in range(40):
+ try:
+  with urllib.request.urlopen(base+'/health',timeout=2) as r:
+   if r.status==200: break
+ except Exception: time.sleep(.5)
+else: raise SystemExit('FastAPI did not become ready on port 3000')
+with urllib.request.urlopen(base+'/manus-routes.json',timeout=5) as r:
+ assert r.status==200 and 'application/json' in r.headers.get('Content-Type','')
+ routes=json.load(r)['routes']
+assert len(routes)==15
+aliases=['/index.html','/dashboard.html','/ward.html','/alerts.html','/metrics.html','/data.html','/settings.html','/how.html']
+for path in aliases:
+ with urllib.request.urlopen(base+path,timeout=5) as r: assert r.status==200,(path,r.status)
+checks={}
+for path in ['/api/health','/api/wards','/api/metrics','/api/alerts','/api/data/files','/api/settings/thresholds','/api/pipeline/jobs']:
+ with urllib.request.urlopen(base+path,timeout=10) as r:
+  payload=json.load(r);checks[path]=r.status
+print(json.dumps({'health':'ready','route_count':len(routes),'aliases':len(aliases),'api':checks}))
+PY
+# PID: 1153
+# Timestamp: 2026-10-23_17-30-02.534940
+# Original Length: 2118 characters
+# ----------------------------------------
+
+[32mubuntu@sandbox:~/geocool$ [0mpython3 - <<'PY'
+import json,time,urllib.request
+base='http://127.0.0.1:3000'
+for _ in range(40):
+ try:
+  with urllib.request.urlopen(base+'/health',timeout=2) as r:
+   if r.status==200: break
+ except Exception: time.sleep(.5)
+else: raise SystemExit('FastAPI did not become ready on port 3000')
+with urllib.request.urlopen(base+'/manus-routes.json',timeout=5) as r:
+ assert r.status==200 and 'application/json' in r.headers.get('Content-Type','')
+ routes=json.load(r)['routes']
+assert len(routes)==15
+aliases=['/index.html','/dashboard.html','/ward.html','/alerts.html','/metrics.html','/data.html','/settings.html','/how.html']
+for path in aliases:
+ with urllib.request.urlopen(base+path,timeout=5) as r: assert r.status==200,(path,r.status)
+checks={}
+for path in ['/api/health','/api/wards','/api/metrics','/api/alerts','/api/data/files','/api/settings/thresholds','/api/pipeline/jobs']:
+ with urllib.request.urlopen(base+path,timeout=10) as r:
+  payload=json.load(r);checks[path]=r.status
+print(json.dumps({'health':'ready','route_count':len(routes),'aliases':len(aliases),'api':checks}))
+PY
+Traceback (most recent call last):
+  File "<stdin>", line 15, in <module>
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 404: Not Found
+[32mubuntu@sandbox:~/geocool$ [0m

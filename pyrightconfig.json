@@ -1,0 +1,12 @@
+{
+  "include": ["backend", "seed_demo.py", "scripts"],
+  "exclude": ["**/__pycache__", "data", "models"],
+  "pythonVersion": "3.12",
+  "typeCheckingMode": "basic",
+  "executionEnvironments": [
+    {
+      "root": ".",
+      "extraPaths": ["."]
+    }
+  ]
+}
